@@ -1,0 +1,9 @@
+ignore:
+  resource_names:
+      - FirewallDomainList
+      - FirewallRule
+      - FirewallRuleGroup
+      - ResolverEndpoint
+      - ResolverQueryLogConfig
+      - ResolverRule
+model_name: route53resolver
