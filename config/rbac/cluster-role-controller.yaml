@@ -32,6 +32,26 @@ rules:
   - patch
   - watch
 - apiGroups:
+  - route53resolver.services.k8s.aws
+  resources:
+  - resolverendpoints
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - route53resolver.services.k8s.aws
+  resources:
+  - resolverendpoints/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - services.k8s.aws
   resources:
   - adoptedresources

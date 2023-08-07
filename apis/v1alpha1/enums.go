@@ -145,15 +145,15 @@ const (
 	ResolverEndpointDirection_OUTBOUND ResolverEndpointDirection = "OUTBOUND"
 )
 
-type ResolverEndpointStatus string
+type ResolverEndpointStatus_SDK string
 
 const (
-	ResolverEndpointStatus_CREATING        ResolverEndpointStatus = "CREATING"
-	ResolverEndpointStatus_OPERATIONAL     ResolverEndpointStatus = "OPERATIONAL"
-	ResolverEndpointStatus_UPDATING        ResolverEndpointStatus = "UPDATING"
-	ResolverEndpointStatus_AUTO_RECOVERING ResolverEndpointStatus = "AUTO_RECOVERING"
-	ResolverEndpointStatus_ACTION_NEEDED   ResolverEndpointStatus = "ACTION_NEEDED"
-	ResolverEndpointStatus_DELETING        ResolverEndpointStatus = "DELETING"
+	ResolverEndpointStatus_SDK_CREATING        ResolverEndpointStatus_SDK = "CREATING"
+	ResolverEndpointStatus_SDK_OPERATIONAL     ResolverEndpointStatus_SDK = "OPERATIONAL"
+	ResolverEndpointStatus_SDK_UPDATING        ResolverEndpointStatus_SDK = "UPDATING"
+	ResolverEndpointStatus_SDK_AUTO_RECOVERING ResolverEndpointStatus_SDK = "AUTO_RECOVERING"
+	ResolverEndpointStatus_SDK_ACTION_NEEDED   ResolverEndpointStatus_SDK = "ACTION_NEEDED"
+	ResolverEndpointStatus_SDK_DELETING        ResolverEndpointStatus_SDK = "DELETING"
 )
 
 type ResolverEndpointType string

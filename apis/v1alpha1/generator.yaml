@@ -3,7 +3,41 @@ ignore:
       - FirewallDomainList
       - FirewallRule
       - FirewallRuleGroup
-      - ResolverEndpoint
+      #- ResolverEndpoint
       - ResolverQueryLogConfig
       - ResolverRule
 model_name: route53resolver
+prefix_config: {}
+operations:
+  CreateResolverEndpoint:
+    output_wrapper_field_path: ResolverEndpoint
+  GetResolverEndpointInput:
+    output_wrapper_field_path: ResolverEndpoint
+  UpdateResolverEndpoint:
+    output_wrapper_field_path: ResolverEndpoint
+  DeleteResolverEndpoint:
+    output_wrapper_field_path: ResolverEndpoint
+resources:
+  ResolverEndpoint:
+    fields:
+      Id:
+        is_primary_key: true
+        print:
+          path: Status.Id
+          name: ID
+    renames:
+      operations:
+        GetResolverEndpoint:
+          output_fields:
+            ResolverEndpointId: Id
+        UpdateResolverEndpoint:
+          output_fields:
+            ResolverEndpointId: Id
+        DeleteResolverEndpoint:
+          output_fields:
+            ResolverEndpointId: Id
+    hooks:
+      sdk_create_post_build_request:
+        template_path: hooks/resolver_endpoint/sdk_create_post_build_request.go.tpl
+    tags:
+      ignore: true
