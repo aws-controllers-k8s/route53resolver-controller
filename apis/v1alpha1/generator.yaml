@@ -11,12 +11,12 @@ prefix_config: {}
 operations:
   CreateResolverEndpoint:
     output_wrapper_field_path: ResolverEndpoint
-  GetResolverEndpointInput:
-    output_wrapper_field_path: ResolverEndpoint
-  UpdateResolverEndpoint:
-    output_wrapper_field_path: ResolverEndpoint
-  DeleteResolverEndpoint:
-    output_wrapper_field_path: ResolverEndpoint
+#  GetResolverEndpointInput:
+#    output_wrapper_field_path: ResolverEndpoint
+#  UpdateResolverEndpoint:
+#    output_wrapper_field_path: ResolverEndpoint
+#  DeleteResolverEndpoint:
+#    output_wrapper_field_path: ResolverEndpoint
 resources:
   ResolverEndpoint:
     fields:
@@ -25,16 +25,26 @@ resources:
         print:
           path: Status.Id
           name: ID
+      SecurityGroupIds:
+        references:
+          resource: SecurityGroup
+          service_name: ec2
+          path: Status.ID
+      IPAddresses.SubnetID:
+        references:
+          resource: Subnet
+          service_name: ec2
+          path: Status.SubnetID
     renames:
       operations:
         GetResolverEndpoint:
-          output_fields:
+          input_fields:
             ResolverEndpointId: Id
         UpdateResolverEndpoint:
-          output_fields:
+          input_fields:
             ResolverEndpointId: Id
         DeleteResolverEndpoint:
-          output_fields:
+          input_fields:
             ResolverEndpointId: Id
     hooks:
       sdk_create_post_build_request:

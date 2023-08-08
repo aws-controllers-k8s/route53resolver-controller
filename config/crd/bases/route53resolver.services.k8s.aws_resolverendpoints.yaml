@@ -76,6 +76,18 @@ spec:
                       type: string
                     subnetID:
                       type: string
+                    subnetRef:
+                      description: Reference field for SubnetID
+                      properties:
+                        from:
+                          description: AWSResourceReference provides all the values
+                            necessary to reference another k8s resource for finding
+                            the identifier(Id/ARN/Name)
+                          properties:
+                            name:
+                              type: string
+                          type: object
+                      type: object
                   type: object
                 type: array
               name:
@@ -99,6 +111,22 @@ spec:
                 items:
                   type: string
                 type: array
+              securityGroupRefs:
+                items:
+                  description: "AWSResourceReferenceWrapper provides a wrapper around
+                    *AWSResourceReference type to provide more user friendly syntax
+                    for references using 'from' field Ex: APIIDRef: \n from: name:
+                    my-api"
+                  properties:
+                    from:
+                      description: AWSResourceReference provides all the values necessary
+                        to reference another k8s resource for finding the identifier(Id/ARN/Name)
+                      properties:
+                        name:
+                          type: string
+                      type: object
+                  type: object
+                type: array
               tags:
                 description: A list of the tag keys and values that you want to associate
                   with the endpoint.
@@ -116,7 +144,6 @@ spec:
             - creatorRequestID
             - direction
             - ipAddresses
-            - securityGroupIDs
             type: object
           status:
             description: ResolverEndpointStatus defines the observed state of ResolverEndpoint

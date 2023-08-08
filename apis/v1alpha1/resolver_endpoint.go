@@ -64,8 +64,8 @@ type ResolverEndpointSpec struct {
 	// Resolver endpoints). Inbound and outbound rules must allow TCP and UDP access.
 	// For inbound access, open port 53. For outbound access, open the port that
 	// you're using for DNS queries on your network.
-	// +kubebuilder:validation:Required
-	SecurityGroupIDs []*string `json:"securityGroupIDs"`
+	SecurityGroupIDs  []*string                                  `json:"securityGroupIDs,omitempty"`
+	SecurityGroupRefs []*ackv1alpha1.AWSResourceReferenceWrapper `json:"securityGroupRefs,omitempty"`
 	// A list of the tag keys and values that you want to associate with the endpoint.
 	Tags []*Tag `json:"tags,omitempty"`
 }

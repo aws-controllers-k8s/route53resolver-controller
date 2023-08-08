@@ -77,6 +77,9 @@ func newResourceDelta(
 	if !ackcompare.SliceStringPEqual(a.ko.Spec.SecurityGroupIDs, b.ko.Spec.SecurityGroupIDs) {
 		delta.Add("Spec.SecurityGroupIDs", a.ko.Spec.SecurityGroupIDs, b.ko.Spec.SecurityGroupIDs)
 	}
+	if !reflect.DeepEqual(a.ko.Spec.SecurityGroupRefs, b.ko.Spec.SecurityGroupRefs) {
+		delta.Add("Spec.SecurityGroupRefs", a.ko.Spec.SecurityGroupRefs, b.ko.Spec.SecurityGroupRefs)
+	}
 	if !reflect.DeepEqual(a.ko.Spec.Tags, b.ko.Spec.Tags) {
 		delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
 	}

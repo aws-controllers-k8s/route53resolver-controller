@@ -134,6 +134,8 @@ type IPAddressRequest struct {
 	IP       *string `json:"ip,omitempty"`
 	IPv6     *string `json:"ipv6,omitempty"`
 	SubnetID *string `json:"subnetID,omitempty"`
+	// Reference field for SubnetID
+	SubnetRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"subnetRef,omitempty"`
 }
 
 // In the response to a GetResolverEndpoint (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_GetResolverEndpoint.html)
