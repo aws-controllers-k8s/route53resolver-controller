@@ -11,12 +11,6 @@ prefix_config: {}
 operations:
   CreateResolverEndpoint:
     output_wrapper_field_path: ResolverEndpoint
-#  GetResolverEndpointInput:
-#    output_wrapper_field_path: ResolverEndpoint
-#  UpdateResolverEndpoint:
-#    output_wrapper_field_path: ResolverEndpoint
-#  DeleteResolverEndpoint:
-#    output_wrapper_field_path: ResolverEndpoint
 resources:
   ResolverEndpoint:
     fields:
