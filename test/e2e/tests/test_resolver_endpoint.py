@@ -28,7 +28,7 @@ from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_route53resolver_res
 from e2e.replacement_values import REPLACEMENT_VALUES
 from e2e.bootstrap_resources import get_bootstrap_resources
 
-RESOURCE_PLURAL = "hostedzones"
+RESOURCE_PLURAL = "resolverendpoints"
 
 # Time to wait after modifying the CR for the status to change
 MODIFY_WAIT_AFTER_SECONDS = 10
