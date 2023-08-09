@@ -1,0 +1,12 @@
+apiVersion: route53resolver.services.k8s.aws/v1alpha1
+kind: ResolverEndpoint
+metadata:
+  name: $RESOLVER_NAME
+spec:
+  name: $RESOLVER_NAME
+  direction: $DIRECTION
+  ipAddresses:
+    - subnetID: $SUBNET_1
+    - subnetID: $SUBNET_2
+  securityGroupIDs:
+    - $SECURITY_GROUP
