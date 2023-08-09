@@ -85,8 +85,8 @@ def get_security_group(vpc_id: str) -> str:
 @service_marker
 @pytest.mark.canary
 class TestResolverEndpoint:
-    def test_create_delete_public(self, route53resolver_client, public_hosted_zone):
-        (ref, cr) = resolver_endpoint()
+    def test_create_delete_public(self, route53resolver_client, resolver_endpoint):
+        (ref, cr) = resolver_endpoint
 
         resolver_endpoint_id = cr["status"]["id"]
 
