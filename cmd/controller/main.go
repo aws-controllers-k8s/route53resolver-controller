@@ -18,6 +18,7 @@ package main
 import (
 	"os"
 
+	ec2apitypes "github.com/aws-controllers-k8s/ec2-controller/apis/v1alpha1"
 	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
 	ackcfg "github.com/aws-controllers-k8s/runtime/pkg/config"
 	ackrt "github.com/aws-controllers-k8s/runtime/pkg/runtime"
@@ -27,12 +28,15 @@ import (
 	svcsdk "github.com/aws/aws-sdk-go/service/route53resolver"
 	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrlrt "sigs.k8s.io/controller-runtime"
 	ctrlrtmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	svctypes "github.com/aws-controllers-k8s/route53resolver-controller/apis/v1alpha1"
 	svcresource "github.com/aws-controllers-k8s/route53resolver-controller/pkg/resource"
+
+	_ "github.com/aws-controllers-k8s/route53resolver-controller/pkg/resource/resolver_endpoint"
 
 	"github.com/aws-controllers-k8s/route53resolver-controller/pkg/version"
 )
@@ -50,6 +54,7 @@ func init() {
 
 	_ = svctypes.AddToScheme(scheme)
 	_ = ackv1alpha1.AddToScheme(scheme)
+	_ = ec2apitypes.AddToScheme(scheme)
 }
 
 func main() {
@@ -58,7 +63,13 @@ func main() {
 	flag.Parse()
 	ackCfg.SetupLogger()
 
-	if err := ackCfg.Validate(); err != nil {
+	managerFactories := svcresource.GetManagerFactories()
+	resourceGVKs := make([]schema.GroupVersionKind, 0, len(managerFactories))
+	for _, mf := range managerFactories {
+		resourceGVKs = append(resourceGVKs, mf.ResourceDescriptor().GroupVersionKind())
+	}
+
+	if err := ackCfg.Validate(ackcfg.WithGVKs(resourceGVKs)); err != nil {
 		setupLog.Error(
 			err, "Unable to create controller manager",
 			"aws.service", awsServiceAlias,
