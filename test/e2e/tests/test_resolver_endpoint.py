@@ -11,7 +11,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-"""Integration tests for the Route53 HostedZone resource
+"""Integration tests for the Route53 ResolverEndpoint resource
 """
 
 import boto3
@@ -50,7 +50,7 @@ def resolver_endpoint():
 
 
     resource_data = load_route53resolver_resource(
-        "resolver-endpoint",
+        "resolver_endpoint",
         additional_replacements=replacements,
     )
     logging.debug(resource_data)
