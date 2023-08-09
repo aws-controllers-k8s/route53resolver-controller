@@ -46,12 +46,6 @@ spec:
               request, a complex type that contains settings for an existing inbound
               or outbound Resolver endpoint."
             properties:
-              creatorRequestID:
-                description: A unique string that identifies the request and that
-                  allows failed requests to be retried without the risk of running
-                  the operation twice. CreatorRequestId can be any unique string,
-                  for example, a date/time stamp.
-                type: string
               direction:
                 description: "Specify the applicable value: \n * INBOUND: Resolver
                   forwards DNS queries to the DNS service for a VPC from your network
@@ -141,7 +135,6 @@ spec:
                   type: object
                 type: array
             required:
-            - creatorRequestID
             - direction
             - ipAddresses
             type: object
@@ -212,6 +205,11 @@ spec:
               creationTime:
                 description: The date and time that the endpoint was created, in Unix
                   time format and Coordinated Universal Time (UTC).
+                type: string
+              creatorRequestID:
+                description: A unique string that identifies the request that created
+                  the Resolver endpoint. The CreatorRequestId allows failed requests
+                  to be retried without the risk of running the operation twice.
                 type: string
               hostVPCID:
                 description: The ID of the VPC that you want to create the Resolver

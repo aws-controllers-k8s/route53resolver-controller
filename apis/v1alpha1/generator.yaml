@@ -6,6 +6,8 @@ ignore:
       #- ResolverEndpoint
       - ResolverQueryLogConfig
       - ResolverRule
+  field_paths:
+    - CreateResolverEndpointInput.CreatorRequestId
 model_name: route53resolver
 prefix_config: {}
 operations:

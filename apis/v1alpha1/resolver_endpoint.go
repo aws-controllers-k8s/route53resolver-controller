@@ -31,11 +31,6 @@ import (
 // outbound Resolver endpoint.
 type ResolverEndpointSpec struct {
 
-	// A unique string that identifies the request and that allows failed requests
-	// to be retried without the risk of running the operation twice. CreatorRequestId
-	// can be any unique string, for example, a date/time stamp.
-	// +kubebuilder:validation:Required
-	CreatorRequestID *string `json:"creatorRequestID"`
 	// Specify the applicable value:
 	//
 	//   - INBOUND: Resolver forwards DNS queries to the DNS service for a VPC
@@ -87,6 +82,11 @@ type ResolverEndpointStatus struct {
 	// Coordinated Universal Time (UTC).
 	// +kubebuilder:validation:Optional
 	CreationTime *string `json:"creationTime,omitempty"`
+	// A unique string that identifies the request that created the Resolver endpoint.
+	// The CreatorRequestId allows failed requests to be retried without the risk
+	// of running the operation twice.
+	// +kubebuilder:validation:Optional
+	CreatorRequestID *string `json:"creatorRequestID,omitempty"`
 	// The ID of the VPC that you want to create the Resolver endpoint in.
 	// +kubebuilder:validation:Optional
 	HostVPCID *string `json:"hostVPCID,omitempty"`

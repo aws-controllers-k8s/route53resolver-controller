@@ -103,9 +103,9 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.CreationTime = nil
 	}
 	if resp.ResolverEndpoint.CreatorRequestId != nil {
-		ko.Spec.CreatorRequestID = resp.ResolverEndpoint.CreatorRequestId
+		ko.Status.CreatorRequestID = resp.ResolverEndpoint.CreatorRequestId
 	} else {
-		ko.Spec.CreatorRequestID = nil
+		ko.Status.CreatorRequestID = nil
 	}
 	if resp.ResolverEndpoint.Direction != nil {
 		ko.Spec.Direction = resp.ResolverEndpoint.Direction
@@ -239,9 +239,9 @@ func (rm *resourceManager) sdkCreate(
 		ko.Status.CreationTime = nil
 	}
 	if resp.ResolverEndpoint.CreatorRequestId != nil {
-		ko.Spec.CreatorRequestID = resp.ResolverEndpoint.CreatorRequestId
+		ko.Status.CreatorRequestID = resp.ResolverEndpoint.CreatorRequestId
 	} else {
-		ko.Spec.CreatorRequestID = nil
+		ko.Status.CreatorRequestID = nil
 	}
 	if resp.ResolverEndpoint.Direction != nil {
 		ko.Spec.Direction = resp.ResolverEndpoint.Direction
@@ -312,28 +312,25 @@ func (rm *resourceManager) newCreateRequestPayload(
 ) (*svcsdk.CreateResolverEndpointInput, error) {
 	res := &svcsdk.CreateResolverEndpointInput{}
 
-	if r.ko.Spec.CreatorRequestID != nil {
-		res.SetCreatorRequestId(*r.ko.Spec.CreatorRequestID)
-	}
 	if r.ko.Spec.Direction != nil {
 		res.SetDirection(*r.ko.Spec.Direction)
 	}
 	if r.ko.Spec.IPAddresses != nil {
-		f2 := []*svcsdk.IpAddressRequest{}
-		for _, f2iter := range r.ko.Spec.IPAddresses {
-			f2elem := &svcsdk.IpAddressRequest{}
-			if f2iter.IP != nil {
-				f2elem.SetIp(*f2iter.IP)
+		f1 := []*svcsdk.IpAddressRequest{}
+		for _, f1iter := range r.ko.Spec.IPAddresses {
+			f1elem := &svcsdk.IpAddressRequest{}
+			if f1iter.IP != nil {
+				f1elem.SetIp(*f1iter.IP)
 			}
-			if f2iter.IPv6 != nil {
-				f2elem.SetIpv6(*f2iter.IPv6)
+			if f1iter.IPv6 != nil {
+				f1elem.SetIpv6(*f1iter.IPv6)
 			}
-			if f2iter.SubnetID != nil {
-				f2elem.SetSubnetId(*f2iter.SubnetID)
+			if f1iter.SubnetID != nil {
+				f1elem.SetSubnetId(*f1iter.SubnetID)
 			}
-			f2 = append(f2, f2elem)
+			f1 = append(f1, f1elem)
 		}
-		res.SetIpAddresses(f2)
+		res.SetIpAddresses(f1)
 	}
 	if r.ko.Spec.Name != nil {
 		res.SetName(*r.ko.Spec.Name)
@@ -342,27 +339,27 @@ func (rm *resourceManager) newCreateRequestPayload(
 		res.SetResolverEndpointType(*r.ko.Spec.ResolverEndpointType)
 	}
 	if r.ko.Spec.SecurityGroupIDs != nil {
-		f5 := []*string{}
-		for _, f5iter := range r.ko.Spec.SecurityGroupIDs {
-			var f5elem string
-			f5elem = *f5iter
-			f5 = append(f5, &f5elem)
+		f4 := []*string{}
+		for _, f4iter := range r.ko.Spec.SecurityGroupIDs {
+			var f4elem string
+			f4elem = *f4iter
+			f4 = append(f4, &f4elem)
 		}
-		res.SetSecurityGroupIds(f5)
+		res.SetSecurityGroupIds(f4)
 	}
 	if r.ko.Spec.Tags != nil {
-		f6 := []*svcsdk.Tag{}
-		for _, f6iter := range r.ko.Spec.Tags {
-			f6elem := &svcsdk.Tag{}
-			if f6iter.Key != nil {
-				f6elem.SetKey(*f6iter.Key)
+		f5 := []*svcsdk.Tag{}
+		for _, f5iter := range r.ko.Spec.Tags {
+			f5elem := &svcsdk.Tag{}
+			if f5iter.Key != nil {
+				f5elem.SetKey(*f5iter.Key)
 			}
-			if f6iter.Value != nil {
-				f6elem.SetValue(*f6iter.Value)
+			if f5iter.Value != nil {
+				f5elem.SetValue(*f5iter.Value)
 			}
-			f6 = append(f6, f6elem)
+			f5 = append(f5, f5elem)
 		}
-		res.SetTags(f6)
+		res.SetTags(f5)
 	}
 
 	return res, nil
@@ -410,9 +407,9 @@ func (rm *resourceManager) sdkUpdate(
 		ko.Status.CreationTime = nil
 	}
 	if resp.ResolverEndpoint.CreatorRequestId != nil {
-		ko.Spec.CreatorRequestID = resp.ResolverEndpoint.CreatorRequestId
+		ko.Status.CreatorRequestID = resp.ResolverEndpoint.CreatorRequestId
 	} else {
-		ko.Spec.CreatorRequestID = nil
+		ko.Status.CreatorRequestID = nil
 	}
 	if resp.ResolverEndpoint.Direction != nil {
 		ko.Spec.Direction = resp.ResolverEndpoint.Direction
