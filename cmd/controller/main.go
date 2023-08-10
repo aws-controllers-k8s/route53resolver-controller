@@ -37,6 +37,7 @@ import (
 	svcresource "github.com/aws-controllers-k8s/route53resolver-controller/pkg/resource"
 
 	_ "github.com/aws-controllers-k8s/route53resolver-controller/pkg/resource/resolver_endpoint"
+	_ "github.com/aws-controllers-k8s/route53resolver-controller/pkg/resource/resolver_rule"
 
 	"github.com/aws-controllers-k8s/route53resolver-controller/pkg/version"
 )

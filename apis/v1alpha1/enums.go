@@ -202,13 +202,13 @@ const (
 	ResolverRuleAssociationStatus_OVERRIDDEN ResolverRuleAssociationStatus = "OVERRIDDEN"
 )
 
-type ResolverRuleStatus string
+type ResolverRuleStatus_SDK string
 
 const (
-	ResolverRuleStatus_COMPLETE ResolverRuleStatus = "COMPLETE"
-	ResolverRuleStatus_DELETING ResolverRuleStatus = "DELETING"
-	ResolverRuleStatus_UPDATING ResolverRuleStatus = "UPDATING"
-	ResolverRuleStatus_FAILED   ResolverRuleStatus = "FAILED"
+	ResolverRuleStatus_SDK_COMPLETE ResolverRuleStatus_SDK = "COMPLETE"
+	ResolverRuleStatus_SDK_DELETING ResolverRuleStatus_SDK = "DELETING"
+	ResolverRuleStatus_SDK_UPDATING ResolverRuleStatus_SDK = "UPDATING"
+	ResolverRuleStatus_SDK_FAILED   ResolverRuleStatus_SDK = "FAILED"
 )
 
 type RuleTypeOption string

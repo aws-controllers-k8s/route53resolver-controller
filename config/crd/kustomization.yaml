@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - common
   - bases/route53resolver.services.k8s.aws_resolverendpoints.yaml
+  - bases/route53resolver.services.k8s.aws_resolverrules.yaml
