@@ -17,6 +17,7 @@ package resolver_rule
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
@@ -42,7 +43,9 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
-
+	if !reflect.DeepEqual(a.ko.Spec.Associations, b.ko.Spec.Associations) {
+		delta.Add("Spec.Associations", a.ko.Spec.Associations, b.ko.Spec.Associations)
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.DomainName, b.ko.Spec.DomainName) {
 		delta.Add("Spec.DomainName", a.ko.Spec.DomainName, b.ko.Spec.DomainName)
 	} else if a.ko.Spec.DomainName != nil && b.ko.Spec.DomainName != nil {

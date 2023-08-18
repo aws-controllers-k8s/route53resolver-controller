@@ -48,6 +48,29 @@ spec:
               or UpdateResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_UpdateResolverRule.html)
               request."
             properties:
+              associations:
+                items:
+                  description: In the response to an AssociateResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_AssociateResolverRule.html),
+                    DisassociateResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_DisassociateResolverRule.html),
+                    or ListResolverRuleAssociations (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_ListResolverRuleAssociations.html)
+                    request, provides information about an association between a Resolver
+                    rule and a VPC. The association determines which DNS queries that
+                    originate in the VPC are forwarded to your network.
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    resolverRuleID:
+                      type: string
+                    status:
+                      type: string
+                    statusMessage:
+                      type: string
+                    vpcID:
+                      type: string
+                  type: object
+                type: array
               domainName:
                 description: DNS queries for this domain name are forwarded to the
                   IP addresses that you specify in TargetIps. If a query matches multiple

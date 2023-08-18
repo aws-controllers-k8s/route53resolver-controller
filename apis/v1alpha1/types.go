@@ -241,6 +241,7 @@ type ResolverRuleAssociation struct {
 	ID             *string `json:"id,omitempty"`
 	Name           *string `json:"name,omitempty"`
 	ResolverRuleID *string `json:"resolverRuleID,omitempty"`
+	Status         *string `json:"status,omitempty"`
 	StatusMessage  *string `json:"statusMessage,omitempty"`
 	VPCID          *string `json:"vpcID,omitempty"`
 }

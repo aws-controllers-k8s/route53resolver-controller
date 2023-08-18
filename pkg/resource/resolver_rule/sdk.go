@@ -178,6 +178,11 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
+	ko.Spec.Associations, err = rm.getAttachedVPC(ctx,&resource{ko})
+	if err != nil {
+		return nil, err
+	}
+
 	return &resource{ko}, nil
 }
 
@@ -327,6 +332,12 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
+	if len(desired.ko.Spec.Associations) > 0 {
+		ko.Spec.Associations = desired.ko.Spec.Associations
+		if err := rm.createAssociation(ctx, &resource{ko}); err != nil {
+			rlog.Debug("Error while syncing Association", err)
+		}
+	}
 	return &resource{ko}, nil
 }
 
@@ -392,133 +403,9 @@ func (rm *resourceManager) sdkUpdate(
 	desired *resource,
 	latest *resource,
 	delta *ackcompare.Delta,
-) (updated *resource, err error) {
-	rlog := ackrtlog.FromContext(ctx)
-	exit := rlog.Trace("rm.sdkUpdate")
-	defer func() {
-		exit(err)
-	}()
-	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
-	if err != nil {
-		return nil, err
-	}
-
-	var resp *svcsdk.UpdateResolverRuleOutput
-	_ = resp
-	resp, err = rm.sdkapi.UpdateResolverRuleWithContext(ctx, input)
-	rm.metrics.RecordAPICall("UPDATE", "UpdateResolverRule", err)
-	if err != nil {
-		return nil, err
-	}
-	// Merge in the information we read from the API call above to the copy of
-	// the original Kubernetes object we passed to the function
-	ko := desired.ko.DeepCopy()
-
-	if ko.Status.ACKResourceMetadata == nil {
-		ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
-	}
-	if resp.ResolverRule.Arn != nil {
-		arn := ackv1alpha1.AWSResourceName(*resp.ResolverRule.Arn)
-		ko.Status.ACKResourceMetadata.ARN = &arn
-	}
-	if resp.ResolverRule.CreationTime != nil {
-		ko.Status.CreationTime = resp.ResolverRule.CreationTime
-	} else {
-		ko.Status.CreationTime = nil
-	}
-	if resp.ResolverRule.CreatorRequestId != nil {
-		ko.Status.CreatorRequestID = resp.ResolverRule.CreatorRequestId
-	} else {
-		ko.Status.CreatorRequestID = nil
-	}
-	if resp.ResolverRule.DomainName != nil {
-		ko.Spec.DomainName = resp.ResolverRule.DomainName
-	} else {
-		ko.Spec.DomainName = nil
-	}
-	if resp.ResolverRule.Id != nil {
-		ko.Status.ID = resp.ResolverRule.Id
-	} else {
-		ko.Status.ID = nil
-	}
-	if resp.ResolverRule.ModificationTime != nil {
-		ko.Status.ModificationTime = resp.ResolverRule.ModificationTime
-	} else {
-		ko.Status.ModificationTime = nil
-	}
-	if resp.ResolverRule.Name != nil {
-		ko.Spec.Name = resp.ResolverRule.Name
-	} else {
-		ko.Spec.Name = nil
-	}
-	if resp.ResolverRule.OwnerId != nil {
-		ko.Status.OwnerID = resp.ResolverRule.OwnerId
-	} else {
-		ko.Status.OwnerID = nil
-	}
-	if resp.ResolverRule.ResolverEndpointId != nil {
-		ko.Spec.ResolverEndpointID = resp.ResolverRule.ResolverEndpointId
-	} else {
-		ko.Spec.ResolverEndpointID = nil
-	}
-	if resp.ResolverRule.RuleType != nil {
-		ko.Spec.RuleType = resp.ResolverRule.RuleType
-	} else {
-		ko.Spec.RuleType = nil
-	}
-	if resp.ResolverRule.ShareStatus != nil {
-		ko.Status.ShareStatus = resp.ResolverRule.ShareStatus
-	} else {
-		ko.Status.ShareStatus = nil
-	}
-	if resp.ResolverRule.Status != nil {
-		ko.Status.Status = resp.ResolverRule.Status
-	} else {
-		ko.Status.Status = nil
-	}
-	if resp.ResolverRule.StatusMessage != nil {
-		ko.Status.StatusMessage = resp.ResolverRule.StatusMessage
-	} else {
-		ko.Status.StatusMessage = nil
-	}
-	if resp.ResolverRule.TargetIps != nil {
-		f13 := []*svcapitypes.TargetAddress{}
-		for _, f13iter := range resp.ResolverRule.TargetIps {
-			f13elem := &svcapitypes.TargetAddress{}
-			if f13iter.Ip != nil {
-				f13elem.IP = f13iter.Ip
-			}
-			if f13iter.Ipv6 != nil {
-				f13elem.IPv6 = f13iter.Ipv6
-			}
-			if f13iter.Port != nil {
-				f13elem.Port = f13iter.Port
-			}
-			f13 = append(f13, f13elem)
-		}
-		ko.Spec.TargetIPs = f13
-	} else {
-		ko.Spec.TargetIPs = nil
-	}
-
-	rm.setStatusDefaults(ko)
-	return &resource{ko}, nil
-}
-
-// newUpdateRequestPayload returns an SDK-specific struct for the HTTP request
-// payload of the Update API call for the resource
-func (rm *resourceManager) newUpdateRequestPayload(
-	ctx context.Context,
-	r *resource,
-	delta *ackcompare.Delta,
-) (*svcsdk.UpdateResolverRuleInput, error) {
-	res := &svcsdk.UpdateResolverRuleInput{}
-
-	if r.ko.Status.ID != nil {
-		res.SetResolverRuleId(*r.ko.Status.ID)
-	}
-
-	return res, nil
+) (*resource, error) {
+	fmt.Println("sdkUpdate called")
+	return rm.customUpdateResolverRule(ctx, desired, latest, delta)
 }
 
 // sdkDelete deletes the supplied resource in the backend AWS service API

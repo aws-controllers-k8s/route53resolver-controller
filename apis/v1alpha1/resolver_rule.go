@@ -31,7 +31,7 @@ import (
 // or UpdateResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_UpdateResolverRule.html)
 // request.
 type ResolverRuleSpec struct {
-
+	Associations []*ResolverRuleAssociation `json:"associations,omitempty"`
 	// DNS queries for this domain name are forwarded to the IP addresses that you
 	// specify in TargetIps. If a query matches multiple Resolver rules (example.com
 	// and www.example.com), outbound DNS queries are routed using the Resolver
