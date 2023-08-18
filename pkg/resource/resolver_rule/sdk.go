@@ -178,7 +178,7 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
-	ko.Spec.Associations, err = rm.getAttachedVPC(ctx,&resource{ko})
+	ko.Spec.Associations, err = rm.getAttachedVPC(ctx, &resource{ko})
 	if err != nil {
 		return nil, err
 	}
@@ -404,7 +404,6 @@ func (rm *resourceManager) sdkUpdate(
 	latest *resource,
 	delta *ackcompare.Delta,
 ) (*resource, error) {
-	fmt.Println("sdkUpdate called")
 	return rm.customUpdateResolverRule(ctx, desired, latest, delta)
 }
 
