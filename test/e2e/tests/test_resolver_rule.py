@@ -42,8 +42,7 @@ def resolver_rule():
     resolver_rule = random_suffix_name("resolver-rule", 32)
     vpc_id = get_bootstrap_resources().ResolverEndpointVPC.vpc_id
 
-
-    (ref, cr) = resolver_endpoint
+    (ref, cr) = resolver_endpoint()
     resolver_endpoint_id = cr["status"]["id"]
 
 
