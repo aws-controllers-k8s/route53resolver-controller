@@ -27,7 +27,6 @@ from acktest.resources import random_suffix_name
 from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_route53resolver_resource
 from e2e.replacement_values import REPLACEMENT_VALUES
 from e2e.bootstrap_resources import get_bootstrap_resources
-from e2e.tests.test_resolver_endpoint import resolver_endpoint
 
 RESOURCE_PLURAL = "resolverrules"
 
@@ -68,14 +67,6 @@ def create_resolver_endpoint():
     assert k8s.get_resource_exists(ref)
 
     yield ref, cr
-
-    # # Try to delete, if doesn't already exist
-    # try:
-    #     _, deleted = k8s.delete_custom_resource(ref, 3, 10)
-    #     assert deleted
-    # except:
-    #     pass
-
 
 def get_security_group(vpc_id: str) -> str:
     ec2_client = boto3.client("ec2")
