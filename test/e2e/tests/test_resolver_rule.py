@@ -37,12 +37,59 @@ MODIFY_WAIT_AFTER_SECONDS = 10
 # Time to wait after the zone has changed status, for the CR to update
 CHECK_STATUS_WAIT_SECONDS = 10
 
+
+def create_resolver_endpoint():
+    resolver_endpoint = random_suffix_name("resolver-endpoint", 32)
+    security_group_id = get_security_group(get_bootstrap_resources().ResolverEndpointVPC.vpc_id)
+
+    replacements = REPLACEMENT_VALUES.copy()
+    replacements["RESOLVER_NAME"] = resolver_endpoint
+    replacements["DIRECTION"] = "OUTBOUND"
+    replacements["SUBNET_1"] = get_bootstrap_resources().ResolverEndpointVPC.private_subnets.subnet_ids[0]
+    replacements["SUBNET_2"] = get_bootstrap_resources().ResolverEndpointVPC.private_subnets.subnet_ids[1]
+    replacements["SECURITY_GROUP"] = security_group_id
+
+
+    resource_data = load_route53resolver_resource(
+        "resolver_endpoint",
+        additional_replacements=replacements,
+    )
+    logging.debug(resource_data)
+
+    # Create the k8s resource
+    ref = k8s.CustomResourceReference(
+        CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+        resolver_endpoint, namespace="default",
+    )
+    k8s.create_custom_resource(ref, resource_data)
+    cr = k8s.wait_resource_consumed_by_controller(ref)
+
+    assert cr is not None
+    assert k8s.get_resource_exists(ref)
+
+    yield (ref, cr)
+
+    # Try to delete, if doesn't already exist
+    try:
+        _, deleted = k8s.delete_custom_resource(ref, 3, 10)
+        assert deleted
+    except:
+        pass
+
+
+def get_security_group(vpc_id: str) -> str:
+    ec2_client = boto3.client("ec2")
+    filters = [{'Name': 'vpc-id', 'Values': [vpc_id]}]
+    response = ec2_client.describe_security_groups(Filters=filters)
+    return response['SecurityGroups'][0]['GroupId']
+
+
 @pytest.fixture
 def resolver_rule():
     resolver_rule = random_suffix_name("resolver-rule", 32)
     vpc_id = get_bootstrap_resources().ResolverEndpointVPC.vpc_id
 
-    (ref, cr) = resolver_endpoint()
+    (ref, cr) = create_resolver_endpoint()
     resolver_endpoint_id = cr["status"]["id"]
 
 
