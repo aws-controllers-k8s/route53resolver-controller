@@ -11,7 +11,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-"""Integration tests for the Route53 ResolverEndpoint resource
+"""Integration tests for the Route53 ResolverRule resource
 """
 
 import boto3

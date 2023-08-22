@@ -1,12 +1,14 @@
 apiVersion: route53resolver.services.k8s.aws/v1alpha1
-kind: ResolverEndpoint
+kind: ResolverRule
 metadata:
-  name: $RESOLVER_NAME
+  name: $RESOLVER_RULE_NAME
 spec:
-  name: $RESOLVER_NAME
-  direction: $DIRECTION
-  ipAddresses:
-    - subnetID: $SUBNET_1
-    - subnetID: $SUBNET_2
-  securityGroupIDs:
-    - $SECURITY_GROUP
+  domainName: $RESOLVER_RULE_DOMAIN
+  name: $RESOLVER_RULE_NAME
+  resolverEndpointID: $RESOLVER_ENDPOINT_ID
+  ruleType: $RESOLVER_RULE_TYPE
+  associations:
+    - vpcID: $VPC_ID
+  targetIPs:
+    - ip: $IP
+      port: $PORT
