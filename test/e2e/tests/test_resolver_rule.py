@@ -69,12 +69,12 @@ def create_resolver_endpoint():
 
     yield ref, cr
 
-    # Try to delete, if doesn't already exist
-    try:
-        _, deleted = k8s.delete_custom_resource(ref, 3, 10)
-        assert deleted
-    except:
-        pass
+    # # Try to delete, if doesn't already exist
+    # try:
+    #     _, deleted = k8s.delete_custom_resource(ref, 3, 10)
+    #     assert deleted
+    # except:
+    #     pass
 
 
 def get_security_group(vpc_id: str) -> str:
@@ -91,9 +91,9 @@ def resolver_rule():
 
     res_end = create_resolver_endpoint()
     for i in res_end:
-        (ref, cr) = i
+        (ref_endpoint, cr_endpoint) = i
 
-    resolver_endpoint_id = cr["status"]["id"]
+    resolver_endpoint_id = cr_endpoint["status"]["id"]
     replacements = REPLACEMENT_VALUES.copy()
     replacements["RESOLVER_RULE_NAME"] = resolver_rule
     replacements["RESOLVER_RULE_DOMAIN"] = "abc.xyz1"
@@ -102,7 +102,6 @@ def resolver_rule():
     replacements["VPC_ID"] = vpc_id
     replacements["IP"] = "1.2.3.4"
     replacements["PORT"] = "53"
-
 
     resource_data = load_route53resolver_resource(
         "resolver_rule",
@@ -125,8 +124,10 @@ def resolver_rule():
 
     # Try to delete, if doesn't already exist
     try:
+        _, deleted_endpoint = k8s.delete_custom_resource(ref_endpoint, 3, 10)
         _, deleted = k8s.delete_custom_resource(ref, 3, 10)
         assert deleted
+        assert deleted_endpoint
     except:
         pass
 
