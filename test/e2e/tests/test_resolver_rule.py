@@ -67,7 +67,7 @@ def create_resolver_endpoint():
     assert cr is not None
     assert k8s.get_resource_exists(ref)
 
-    yield (ref, cr)
+    yield ref, cr
 
     # Try to delete, if doesn't already exist
     try:
@@ -89,48 +89,46 @@ def resolver_rule():
     resolver_rule = random_suffix_name("resolver-rule", 32)
     vpc_id = get_bootstrap_resources().ResolverEndpointVPC.vpc_id
 
-    data = create_resolver_endpoint()
-    logging.debug("mydata"+data)
-    print(data)
-   # (ref, cr) = create_resolver_endpoint()
-    #resolver_endpoint_id = cr["status"]["id"]
+    res_end = create_resolver_endpoint()
+    for i in res_end:
+        (ref, cr) = i
+
+    resolver_endpoint_id = cr["status"]["id"]
+    replacements = REPLACEMENT_VALUES.copy()
+    replacements["RESOLVER_RULE_NAME"] = resolver_rule
+    replacements["RESOLVER_RULE_DOMAIN"] = "abc.xyz1"
+    replacements["RESOLVER_ENDPOINT_ID"] = resolver_endpoint_id
+    replacements["RESOLVER_RULE_TYPE"] = "FORWARD"
+    replacements["VPC_ID"] = vpc_id
+    replacements["IP"] = "1.2.3.4"
+    replacements["PORT"] = "53"
 
 
-    # replacements = REPLACEMENT_VALUES.copy()
-    # replacements["RESOLVER_RULE_NAME"] = resolver_rule
-    # replacements["RESOLVER_RULE_DOMAIN"] = "abc.xyz1"
-    # replacements["RESOLVER_ENDPOINT_ID"] = resolver_endpoint_id
-    # replacements["RESOLVER_RULE_TYPE"] = "FORWARD"
-    # replacements["VPC_ID"] = vpc_id
-    # replacements["IP"] = "1.2.3.4"
-    # replacements["PORT"] = "53"
-    #
-    #
-    # resource_data = load_route53resolver_resource(
-    #     "resolver_rule",
-    #     additional_replacements=replacements,
-    # )
-    # logging.debug(resource_data)
-    #
-    # # Create the k8s resource
-    # ref = k8s.CustomResourceReference(
-    #     CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
-    #     resolver_rule, namespace="default",
-    # )
-    # k8s.create_custom_resource(ref, resource_data)
-    # cr = k8s.wait_resource_consumed_by_controller(ref)
-    #
-    # assert cr is not None
-    # assert k8s.get_resource_exists(ref)
-    #
-    # yield (ref, cr)
-    #
-    # # Try to delete, if doesn't already exist
-    # try:
-    #     _, deleted = k8s.delete_custom_resource(ref, 3, 10)
-    #     assert deleted
-    # except:
-    #     pass
+    resource_data = load_route53resolver_resource(
+        "resolver_rule",
+        additional_replacements=replacements,
+    )
+    logging.debug(resource_data)
+
+    # Create the k8s resource
+    ref = k8s.CustomResourceReference(
+        CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+        resolver_rule, namespace="default",
+    )
+    k8s.create_custom_resource(ref, resource_data)
+    cr = k8s.wait_resource_consumed_by_controller(ref)
+
+    assert cr is not None
+    assert k8s.get_resource_exists(ref)
+
+    yield (ref, cr)
+
+    # Try to delete, if doesn't already exist
+    try:
+        _, deleted = k8s.delete_custom_resource(ref, 3, 10)
+        assert deleted
+    except:
+        pass
 
 @service_marker
 @pytest.mark.canary
