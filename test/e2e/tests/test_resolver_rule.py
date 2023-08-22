@@ -58,7 +58,7 @@ def create_resolver_endpoint():
 
     # Create the k8s resource
     ref = k8s.CustomResourceReference(
-        CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+        CRD_GROUP, CRD_VERSION, "resolverendpoints",
         resolver_endpoint, namespace="default",
     )
     k8s.create_custom_resource(ref, resource_data)
