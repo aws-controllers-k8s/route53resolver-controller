@@ -39,7 +39,7 @@ CHECK_STATUS_WAIT_SECONDS = 10
 
 
 def create_resolver_endpoint():
-    resolver_endpoint = random_suffix_name("resolver-endpoint", 32)
+    resolver_endpoint = random_suffix_name("resolver-endpoint-for-rule", 32)
     security_group_id = get_security_group(get_bootstrap_resources().ResolverEndpointVPC.vpc_id)
 
     replacements = REPLACEMENT_VALUES.copy()
