@@ -48,6 +48,7 @@ type Filter struct {
 // VPC from Amazon Virtual Private Cloud (Amazon VPC).
 type FirewallConfig struct {
 	ID         *string `json:"id,omitempty"`
+	OwnerID    *string `json:"ownerID,omitempty"`
 	ResourceID *string `json:"resourceID,omitempty"`
 }
 
@@ -97,6 +98,8 @@ type FirewallRuleGroup struct {
 	ID               *string `json:"id,omitempty"`
 	ModificationTime *string `json:"modificationTime,omitempty"`
 	Name             *string `json:"name,omitempty"`
+	OwnerID          *string `json:"ownerID,omitempty"`
+	ShareStatus      *string `json:"shareStatus,omitempty"`
 	StatusMessage    *string `json:"statusMessage,omitempty"`
 }
 
@@ -124,6 +127,8 @@ type FirewallRuleGroupMetadata struct {
 	CreatorRequestID *string `json:"creatorRequestID,omitempty"`
 	ID               *string `json:"id,omitempty"`
 	Name             *string `json:"name,omitempty"`
+	OwnerID          *string `json:"ownerID,omitempty"`
+	ShareStatus      *string `json:"shareStatus,omitempty"`
 }
 
 // In a CreateResolverEndpoint (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_CreateResolverEndpoint.html)
@@ -164,6 +169,7 @@ type IPAddressUpdate struct {
 // a VPC.
 type ResolverConfig struct {
 	ID         *string `json:"id,omitempty"`
+	OwnerID    *string `json:"ownerID,omitempty"`
 	ResourceID *string `json:"resourceID,omitempty"`
 }
 
@@ -171,6 +177,7 @@ type ResolverConfig struct {
 // validation.
 type ResolverDNSSEcConfig struct {
 	ID         *string `json:"id,omitempty"`
+	OwnerID    *string `json:"ownerID,omitempty"`
 	ResourceID *string `json:"resourceID,omitempty"`
 }
 
@@ -207,6 +214,8 @@ type ResolverQueryLogConfig struct {
 	CreationTime     *string `json:"creationTime,omitempty"`
 	CreatorRequestID *string `json:"creatorRequestID,omitempty"`
 	ID               *string `json:"id,omitempty"`
+	OwnerID          *string `json:"ownerID,omitempty"`
+	ShareStatus      *string `json:"shareStatus,omitempty"`
 }
 
 // In the response to an AssociateResolverQueryLogConfig (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_AssociateResolverQueryLogConfig.html),
@@ -222,25 +231,6 @@ type ResolverQueryLogConfigAssociation struct {
 	ResourceID               *string `json:"resourceID,omitempty"`
 }
 
-// For queries that originate in your VPC, detailed information about a Resolver
-// rule, which specifies how to route DNS queries out of the VPC. The ResolverRule
-// parameter appears in the response to a CreateResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_CreateResolverRule.html),
-// DeleteResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_DeleteResolverRule.html),
-// GetResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_GetResolverRule.html),
-// ListResolverRules (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_ListResolverRules.html),
-// or UpdateResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_UpdateResolverRule.html)
-// request.
-type ResolverRule struct {
-	ARN                *string `json:"arn,omitempty"`
-	CreationTime       *string `json:"creationTime,omitempty"`
-	CreatorRequestID   *string `json:"creatorRequestID,omitempty"`
-	ID                 *string `json:"id,omitempty"`
-	ModificationTime   *string `json:"modificationTime,omitempty"`
-	Name               *string `json:"name,omitempty"`
-	ResolverEndpointID *string `json:"resolverEndpointID,omitempty"`
-	StatusMessage      *string `json:"statusMessage,omitempty"`
-}
-
 // In the response to an AssociateResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_AssociateResolverRule.html),
 // DisassociateResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_DisassociateResolverRule.html),
 // or ListResolverRuleAssociations (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_ListResolverRuleAssociations.html)
@@ -251,6 +241,7 @@ type ResolverRuleAssociation struct {
 	ID             *string `json:"id,omitempty"`
 	Name           *string `json:"name,omitempty"`
 	ResolverRuleID *string `json:"resolverRuleID,omitempty"`
+	Status         *string `json:"status,omitempty"`
 	StatusMessage  *string `json:"statusMessage,omitempty"`
 	VPCID          *string `json:"vpcID,omitempty"`
 }
@@ -258,8 +249,34 @@ type ResolverRuleAssociation struct {
 // In an UpdateResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_UpdateResolverRule.html)
 // request, information about the changes that you want to make.
 type ResolverRuleConfig struct {
-	Name               *string `json:"name,omitempty"`
-	ResolverEndpointID *string `json:"resolverEndpointID,omitempty"`
+	Name               *string          `json:"name,omitempty"`
+	ResolverEndpointID *string          `json:"resolverEndpointID,omitempty"`
+	TargetIPs          []*TargetAddress `json:"targetIPs,omitempty"`
+}
+
+// For queries that originate in your VPC, detailed information about a Resolver
+// rule, which specifies how to route DNS queries out of the VPC. The ResolverRule
+// parameter appears in the response to a CreateResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_CreateResolverRule.html),
+// DeleteResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_DeleteResolverRule.html),
+// GetResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_GetResolverRule.html),
+// ListResolverRules (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_ListResolverRules.html),
+// or UpdateResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_UpdateResolverRule.html)
+// request.
+type ResolverRule_SDK struct {
+	ARN                *string          `json:"arn,omitempty"`
+	CreationTime       *string          `json:"creationTime,omitempty"`
+	CreatorRequestID   *string          `json:"creatorRequestID,omitempty"`
+	DomainName         *string          `json:"domainName,omitempty"`
+	ID                 *string          `json:"id,omitempty"`
+	ModificationTime   *string          `json:"modificationTime,omitempty"`
+	Name               *string          `json:"name,omitempty"`
+	OwnerID            *string          `json:"ownerID,omitempty"`
+	ResolverEndpointID *string          `json:"resolverEndpointID,omitempty"`
+	RuleType           *string          `json:"ruleType,omitempty"`
+	ShareStatus        *string          `json:"shareStatus,omitempty"`
+	Status             *string          `json:"status,omitempty"`
+	StatusMessage      *string          `json:"statusMessage,omitempty"`
+	TargetIPs          []*TargetAddress `json:"targetIPs,omitempty"`
 }
 
 // One tag that you want to add to the specified resource. A tag consists of
@@ -274,6 +291,7 @@ type Tag struct {
 type TargetAddress struct {
 	IP   *string `json:"ip,omitempty"`
 	IPv6 *string `json:"ipv6,omitempty"`
+	Port *int64  `json:"port,omitempty"`
 }
 
 // Provides information about the IP address type in response to UpdateResolverEndpoint

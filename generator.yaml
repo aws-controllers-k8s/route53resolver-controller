@@ -5,14 +5,17 @@ ignore:
       - FirewallRuleGroup
       #- ResolverEndpoint
       - ResolverQueryLogConfig
-      - ResolverRule
+      #- ResolverRule
   field_paths:
     - CreateResolverEndpointInput.CreatorRequestId
+    - CreateResolverRuleInput.CreatorRequestId
 model_name: route53resolver
 prefix_config: {}
 operations:
   CreateResolverEndpoint:
     output_wrapper_field_path: ResolverEndpoint
+  CreateResolverRule:
+    output_wrapper_field_path: ResolverRule
 resources:
   ResolverEndpoint:
     fields:
@@ -45,5 +48,39 @@ resources:
     hooks:
       sdk_create_post_build_request:
         template_path: hooks/resolver_endpoint/sdk_create_post_build_request.go.tpl
+    tags:
+      ignore: true
+  ResolverRule:
+    fields:
+      Id:
+        is_primary_key: true
+        print:
+          path: Status.Id
+          name: ID
+      Associations:
+        custom_field:
+          list_of: ResolverRuleAssociation
+    renames:
+      operations:
+        GetResolverRule:
+          input_fields:
+            ResolverRuleId: Id
+        UpdateResolverRule:
+          input_fields:
+            ResolverRuleId: Id
+        DeleteResolverRule:
+          input_fields:
+            ResolverRuleId: Id
+    hooks:
+      sdk_create_post_build_request:
+        template_path: hooks/resolver_rule/sdk_create_post_build_request.go.tpl
+      sdk_create_post_set_output:
+        template_path: hooks/resolver_rule/sdk_create_post_set_output.go.tpl
+      sdk_read_one_post_set_output:
+        template_path: hooks/resolver_rule/sdk_read_many_post_set_output.go.tpl
+      sdk_delete_pre_build_request:
+        template_path: hooks/resolver_rule/sdk_delete_pre_build_request.go.tpl
+    update_operation:
+      custom_method_name: customUpdateResolverRule
     tags:
       ignore: true
