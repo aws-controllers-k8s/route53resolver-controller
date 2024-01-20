@@ -86,7 +86,7 @@ type ResolverEndpointStatus struct {
 	// The CreatorRequestId allows failed requests to be retried without the risk
 	// of running the operation twice.
 	// +kubebuilder:validation:Optional
-	CreatorRequestID *string `json:"creatorRequestID,omitempty"`
+	CreatorRequestID *string `json:"creatorRequestID"`
 	// The ID of the VPC that you want to create the Resolver endpoint in.
 	// +kubebuilder:validation:Optional
 	HostVPCID *string `json:"hostVPCID,omitempty"`
