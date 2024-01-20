@@ -43,8 +43,12 @@ func newResourceDelta(
 		return delta
 	}
 
-	if !reflect.DeepEqual(a.ko.Spec.Associations, b.ko.Spec.Associations) {
+	if len(a.ko.Spec.Associations) != len(b.ko.Spec.Associations) {
 		delta.Add("Spec.Associations", a.ko.Spec.Associations, b.ko.Spec.Associations)
+	} else if len(a.ko.Spec.Associations) > 0 {
+		if !reflect.DeepEqual(a.ko.Spec.Associations, b.ko.Spec.Associations) {
+			delta.Add("Spec.Associations", a.ko.Spec.Associations, b.ko.Spec.Associations)
+		}
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.DomainName, b.ko.Spec.DomainName) {
 		delta.Add("Spec.DomainName", a.ko.Spec.DomainName, b.ko.Spec.DomainName)
@@ -74,11 +78,19 @@ func newResourceDelta(
 			delta.Add("Spec.RuleType", a.ko.Spec.RuleType, b.ko.Spec.RuleType)
 		}
 	}
-	if !reflect.DeepEqual(a.ko.Spec.Tags, b.ko.Spec.Tags) {
+	if len(a.ko.Spec.Tags) != len(b.ko.Spec.Tags) {
 		delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
+	} else if len(a.ko.Spec.Tags) > 0 {
+		if !reflect.DeepEqual(a.ko.Spec.Tags, b.ko.Spec.Tags) {
+			delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
+		}
 	}
-	if !reflect.DeepEqual(a.ko.Spec.TargetIPs, b.ko.Spec.TargetIPs) {
+	if len(a.ko.Spec.TargetIPs) != len(b.ko.Spec.TargetIPs) {
 		delta.Add("Spec.TargetIPs", a.ko.Spec.TargetIPs, b.ko.Spec.TargetIPs)
+	} else if len(a.ko.Spec.TargetIPs) > 0 {
+		if !reflect.DeepEqual(a.ko.Spec.TargetIPs, b.ko.Spec.TargetIPs) {
+			delta.Add("Spec.TargetIPs", a.ko.Spec.TargetIPs, b.ko.Spec.TargetIPs)
+		}
 	}
 
 	return delta
