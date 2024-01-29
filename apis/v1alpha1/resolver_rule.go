@@ -90,7 +90,7 @@ type ResolverRuleStatus struct {
 	// identifies the request and allows failed requests to be retried without the
 	// risk of running the operation twice.
 	// +kubebuilder:validation:Optional
-	CreatorRequestID *string `json:"creatorRequestID,omitempty"`
+	CreatorRequestID *string `json:"creatorRequestID"`
 	// The ID that Resolver assigned to the Resolver rule when you created it.
 	// +kubebuilder:validation:Optional
 	ID *string `json:"id,omitempty"`
