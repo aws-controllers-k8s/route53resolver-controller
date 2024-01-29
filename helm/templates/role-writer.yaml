@@ -10,9 +10,7 @@ rules:
   - route53resolver.services.k8s.aws
   resources:
   - resolverendpoints
-
   - resolverrules
-
   verbs:
   - create
   - delete
