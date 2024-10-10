@@ -55,6 +55,7 @@ rules:
   - ""
   resources:
   - configmaps
+  - secrets
   verbs:
   - get
   - list
@@ -69,38 +70,11 @@ rules:
   - list
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups:
   - ec2.services.k8s.aws
   resources:
   - securitygroups
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ec2.services.k8s.aws
-  resources:
   - securitygroups/status
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ec2.services.k8s.aws
-  resources:
   - subnets
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ec2.services.k8s.aws
-  resources:
   - subnets/status
   verbs:
   - get
@@ -109,25 +83,6 @@ rules:
   - route53resolver.services.k8s.aws
   resources:
   - resolverendpoints
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - route53resolver.services.k8s.aws
-  resources:
-  - resolverendpoints/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - route53resolver.services.k8s.aws
-  resources:
   - resolverrules
   verbs:
   - create
@@ -140,6 +95,7 @@ rules:
 - apiGroups:
   - route53resolver.services.k8s.aws
   resources:
+  - resolverendpoints/status
   - resolverrules/status
   verbs:
   - get
@@ -149,25 +105,6 @@ rules:
   - services.k8s.aws
   resources:
   - adoptedresources
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - services.k8s.aws
-  resources:
-  - adoptedresources/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - services.k8s.aws
-  resources:
   - fieldexports
   verbs:
   - create
@@ -180,6 +117,7 @@ rules:
 - apiGroups:
   - services.k8s.aws
   resources:
+  - adoptedresources/status
   - fieldexports/status
   verbs:
   - get
