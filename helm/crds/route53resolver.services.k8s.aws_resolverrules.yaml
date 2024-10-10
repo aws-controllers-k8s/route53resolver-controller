@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.2
   name: resolverrules.route53resolver.services.k8s.aws
 spec:
   group: route53resolver.services.k8s.aws
@@ -43,7 +43,6 @@ spec:
           spec:
             description: |-
               ResolverRuleSpec defines the desired state of ResolverRule.
-
 
               For queries that originate in your VPC, detailed information about a Resolver
               rule, which specifies how to route DNS queries out of the VPC. The ResolverRule
@@ -100,17 +99,14 @@ spec:
                   When you want to forward DNS queries for specified domain name to resolvers
                   on your network, specify FORWARD.
 
-
                   When you have a forwarding rule to forward DNS queries for a domain to your
                   network and you want Resolver to process queries for a subdomain of that
                   domain, specify SYSTEM.
-
 
                   For example, to forward DNS queries for example.com to resolvers on your
                   network, you create a rule and specify FORWARD for RuleType. To then have
                   Resolver process queries for apex.example.com, you create a rule and specify
                   SYSTEM for RuleType.
-
 
                   Currently, only Resolver can create rules that have a value of RECURSIVE
                   for RuleType.
@@ -133,7 +129,6 @@ spec:
                 description: |-
                   The IPs that you want Resolver to forward DNS queries to. You can specify
                   only IPv4 addresses. Separate IP addresses with a space.
-
 
                   TargetIps is available only when the value of Rule type is FORWARD.
                 items:
@@ -171,7 +166,6 @@ spec:
                       when it has verified that an "adopted" resource (a resource where the
                       ARN annotation was set by the Kubernetes user on the CR) exists and
                       matches the supplied CR's Spec field values.
-                      TODO(vijat@): Find a better strategy for resources that do not have ARN in CreateOutputResponse
                       https://github.com/aws/aws-controllers-k8s/issues/270
                     type: string
                   ownerAccountID:
