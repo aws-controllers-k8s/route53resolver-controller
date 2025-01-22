@@ -47,6 +47,7 @@ def resolver_endpoint():
     replacements["SUBNET_1"] = get_bootstrap_resources().ResolverEndpointVPC.private_subnets.subnet_ids[0]
     replacements["SUBNET_2"] = get_bootstrap_resources().ResolverEndpointVPC.private_subnets.subnet_ids[1]
     replacements["SECURITY_GROUP"] = security_group_id
+    replacements["DELETION_POLICY"] = "delete"
 
 
     resource_data = load_route53resolver_resource(
@@ -75,6 +76,67 @@ def resolver_endpoint():
     except:
         pass
 
+@pytest.fixture
+def resolver_endpoint_adopt():
+    resolver_endpoint = random_suffix_name("resolver-endpoint", 32)
+    security_group_id = get_security_group(get_bootstrap_resources().ResolverEndpointVPC.vpc_id)
+
+    replacements = REPLACEMENT_VALUES.copy()
+    replacements["RESOLVER_NAME"] = resolver_endpoint
+    replacements["DIRECTION"] = "OUTBOUND"
+    replacements["SUBNET_1"] = get_bootstrap_resources().ResolverEndpointVPC.private_subnets.subnet_ids[0]
+    replacements["SUBNET_2"] = get_bootstrap_resources().ResolverEndpointVPC.private_subnets.subnet_ids[1]
+    replacements["SECURITY_GROUP"] = security_group_id
+    replacements["DELETION_POLICY"] = "retain"
+
+
+    resource_data = load_route53resolver_resource(
+        "resolver_endpoint",
+        additional_replacements=replacements,
+    )
+    logging.debug(resource_data)
+
+    # Create the k8s resource
+    ref = k8s.CustomResourceReference(
+        CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+        resolver_endpoint, namespace="default",
+    )
+    k8s.create_custom_resource(ref, resource_data)
+    cr = k8s.wait_resource_consumed_by_controller(ref)
+
+    resolver_id = cr["status"]["id"]
+
+    assert cr is not None
+    assert k8s.get_resource_exists(ref)
+
+    #Delete with retain policy allows us to adopt same resource
+    _, deleted = k8s.delete_custom_resource(ref, 3, 10)
+    assert deleted  
+
+
+    replacements["ADOPTION_POLICY"] = "adopt"
+    replacements["ADOPTION_FIELDS"] = f"{{\\\"id\\\": \\\"{resolver_id}\\\"}}"
+    resource_data = load_route53resolver_resource(
+        "resolver_endpoint_adoption",
+        additional_replacements=replacements,
+    )
+    logging.debug(resource_data)
+     # Adopt the k8s resource
+    ref = k8s.CustomResourceReference(
+        CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+        resolver_endpoint, namespace="default",
+    )
+    k8s.create_custom_resource(ref, resource_data)
+    cr = k8s.wait_resource_consumed_by_controller(ref)
+    assert cr is not None
+    assert k8s.get_resource_exists(ref)
+
+    yield (ref, cr)
+
+    # Try to delete, if doesn't already exist
+    _, deleted = k8s.delete_custom_resource(ref, 3, 10)
+    assert deleted
+
 
 def get_security_group(vpc_id: str) -> str:
     ec2_client = boto3.client("ec2")
@@ -87,6 +149,22 @@ def get_security_group(vpc_id: str) -> str:
 class TestResolverEndpoint:
     def test_create_delete_public(self, route53resolver_client, resolver_endpoint):
         (ref, cr) = resolver_endpoint
+
+        resolver_endpoint_id = cr["status"]["id"]
+
+        assert resolver_endpoint_id
+
+        try:
+            aws_res = route53resolver_client.get_resolver_endpoint(ResolverEndpointId=resolver_endpoint_id)
+            assert aws_res is not None
+        except route53resolver_client.exceptions.ResourceNotFoundException:
+            pytest.fail(f"Could not find Resolver Endpoint with ID '{resolver_endpoint_id}' in Route53")
+    
+    def test_adopt_delete(self, route53resolver_client, resolver_endpoint_adopt):
+        (ref, cr) = resolver_endpoint_adopt
+
+        assert 'status' in cr
+        assert 'id' in cr['status']
 
         resolver_endpoint_id = cr["status"]["id"]
 

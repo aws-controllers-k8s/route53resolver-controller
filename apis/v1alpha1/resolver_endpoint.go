@@ -45,7 +45,7 @@ type ResolverEndpointSpec struct {
 	// (for outbound endpoints) or that you forward DNS queries to (for inbound
 	// endpoints). The subnet ID uniquely identifies a VPC.
 	// +kubebuilder:validation:Required
-	IPAddresses []*IPAddressRequest `json:"ipAddresses"`
+	IPAddresses []*IPAddressRequest `json:"ipAddresses,omitempty"`
 	// A friendly name that lets you easily find a configuration in the Resolver
 	// dashboard in the Route 53 console.
 	Name *string `json:"name,omitempty"`
@@ -90,6 +90,8 @@ type ResolverEndpointStatus struct {
 	// The ID of the VPC that you want to create the Resolver endpoint in.
 	// +kubebuilder:validation:Optional
 	HostVPCID *string `json:"hostVPCID,omitempty"`
+	// +kubebuilder:validation:Optional
+	IPAddresses []*IPAddressResponse `json:"ipAddresses,omitempty"`
 	// The ID of the Resolver endpoint.
 	// +kubebuilder:validation:Optional
 	ID *string `json:"id,omitempty"`

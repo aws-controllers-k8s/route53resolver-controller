@@ -34,6 +34,10 @@ resources:
           resource: Subnet
           service_name: ec2
           path: Status.SubnetID
+      IPAddresses:
+        is_read_only: true
+        custom_field:
+          list_of: IpAddressResponse
     renames:
       operations:
         GetResolverEndpoint:
@@ -48,6 +52,12 @@ resources:
     hooks:
       sdk_create_post_build_request:
         template_path: hooks/resolver_endpoint/sdk_create_post_build_request.go.tpl
+      sdk_create_post_set_output:
+        template_path: hooks/resolver_endpoint/sdk_create_post_set_output.go.tpl
+      sdk_read_one_post_set_output:
+        template_path: hooks/resolver_endpoint/sdk_read_one_post_set_output.go.tpl
+      sdk_update_post_set_output:
+        template_path: hooks/resolver_endpoint/sdk_update_post_set_output.go.tpl
     tags:
       ignore: true
   ResolverRule:

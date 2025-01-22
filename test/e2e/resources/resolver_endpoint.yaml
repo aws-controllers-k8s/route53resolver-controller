@@ -2,6 +2,7 @@ apiVersion: route53resolver.services.k8s.aws/v1alpha1
 kind: ResolverEndpoint
 metadata:
   name: $RESOLVER_NAME
+  services.k8s.aws/deletion-policy: $DELETION_POLICY
 spec:
   name: $RESOLVER_NAME
   direction: $DIRECTION
