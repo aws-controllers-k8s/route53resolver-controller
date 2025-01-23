@@ -245,6 +245,31 @@ spec:
                   can use for DNS queries.
                 format: int64
                 type: integer
+              ipAddresses:
+                items:
+                  description: |-
+                    In the response to a GetResolverEndpoint (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_GetResolverEndpoint.html)
+                    request, information about the IP addresses that the Resolver endpoint uses
+                    for DNS queries.
+                  properties:
+                    creationTime:
+                      type: string
+                    ip:
+                      type: string
+                    ipID:
+                      type: string
+                    ipv6:
+                      type: string
+                    modificationTime:
+                      type: string
+                    status:
+                      type: string
+                    statusMessage:
+                      type: string
+                    subnetID:
+                      type: string
+                  type: object
+                type: array
               modificationTime:
                 description: |-
                   The date and time that the endpoint was last modified, in Unix time format

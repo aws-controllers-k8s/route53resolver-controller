@@ -443,6 +443,11 @@ func (in *IPAddressResponse) DeepCopyInto(out *IPAddressResponse) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.Status != nil {
+		in, out := &in.Status, &out.Status
+		*out = new(string)
+		**out = **in
+	}
 	if in.StatusMessage != nil {
 		in, out := &in.StatusMessage, &out.StatusMessage
 		*out = new(string)
@@ -726,6 +731,17 @@ func (in *ResolverEndpointStatus) DeepCopyInto(out *ResolverEndpointStatus) {
 		in, out := &in.HostVPCID, &out.HostVPCID
 		*out = new(string)
 		**out = **in
+	}
+	if in.IPAddresses != nil {
+		in, out := &in.IPAddresses, &out.IPAddresses
+		*out = make([]*IPAddressResponse, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(IPAddressResponse)
+				(*in).DeepCopyInto(*out)
+			}
+		}
 	}
 	if in.ID != nil {
 		in, out := &in.ID, &out.ID

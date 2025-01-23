@@ -152,6 +152,7 @@ type IPAddressResponse struct {
 	IPID             *string `json:"ipID,omitempty"`
 	IPv6             *string `json:"ipv6,omitempty"`
 	ModificationTime *string `json:"modificationTime,omitempty"`
+	Status           *string `json:"status,omitempty"`
 	StatusMessage    *string `json:"statusMessage,omitempty"`
 	SubnetID         *string `json:"subnetID,omitempty"`
 }

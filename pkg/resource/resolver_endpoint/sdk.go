@@ -165,6 +165,7 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
+	rm.ListAttachedIPAddresses(ctx, ko)
 	return &resource{ko}, nil
 }
 
@@ -301,6 +302,7 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
+	rm.ListAttachedIPAddresses(ctx, ko)
 	return &resource{ko}, nil
 }
 
@@ -469,6 +471,10 @@ func (rm *resourceManager) sdkUpdate(
 	}
 
 	rm.setStatusDefaults(ko)
+	if delta.DifferentAt("Spec.IPAddresses") {
+		rm.SyncIPAddresses(ctx, desired, latest)
+		ko.Status.IPAddressCount = latest.ko.Status.IPAddressCount
+	}
 	return &resource{ko}, nil
 }
 
