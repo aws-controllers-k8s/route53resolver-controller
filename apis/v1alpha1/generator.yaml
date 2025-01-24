@@ -1,5 +1,6 @@
 ignore:
   resource_names:
+      - OutpostResolver
       - FirewallDomainList
       - FirewallRule
       - FirewallRuleGroup
@@ -8,7 +9,15 @@ ignore:
       #- ResolverRule
   field_paths:
     - CreateResolverEndpointInput.CreatorRequestId
+    - CreateResolverEndpointInput.OutpostArn
+    - CreateResolverEndpointInput.PreferredInstanceType
+    - CreateResolverEndpointInput.Protocols
+    - CreateResolverEndpointOutput.ResolverEndpoint.OutpostArn
+    - CreateResolverEndpointOutput.ResolverEndpoint.PreferredInstanceType
+    - CreateResolverEndpointOutput.ResolverEndpoint.Protocols
     - CreateResolverRuleInput.CreatorRequestId
+    - TargetAddress.ServerNameIndication
+    - TargetAddress.Protocol
 model_name: route53resolver
 prefix_config: {}
 operations:
@@ -18,6 +27,10 @@ operations:
     output_wrapper_field_path: ResolverRule
 resources:
   ResolverEndpoint:
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundException
     fields:
       Id:
         is_primary_key: true
@@ -61,6 +74,10 @@ resources:
     tags:
       ignore: true
   ResolverRule:
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundException
     fields:
       Id:
         is_primary_key: true

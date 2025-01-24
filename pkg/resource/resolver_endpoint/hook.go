@@ -7,14 +7,17 @@ import (
 
 	svcapitypes "github.com/aws-controllers-k8s/route53resolver-controller/apis/v1alpha1"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	svcsdk "github.com/aws/aws-sdk-go/service/route53resolver"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/route53resolver"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/route53resolver/types"
 )
 
 // getCreatorRequestId will generate a CreatorRequestId for a given resolver endpoint
 // using the name of the endpoint and the current timestamp, so that it produces a
 // unique value
-func getCreatorRequestId(endpoint *svcapitypes.ResolverEndpoint) string {
-	return fmt.Sprintf("%s-%d", *endpoint.Spec.Name, time.Now().UnixMilli())
+func getCreatorRequestId(endpoint *svcapitypes.ResolverEndpoint) *string {
+	requestId := fmt.Sprintf("%s-%d", *endpoint.Spec.Name, time.Now().UnixMilli())
+	return &requestId
 }
 
 func (rm *resourceManager) ListAttachedIPAddresses(
@@ -30,7 +33,7 @@ func (rm *resourceManager) ListAttachedIPAddresses(
 	f0 := []*svcapitypes.IPAddressRequest{}
 	f2 := []*svcapitypes.IPAddressResponse{}
 	for {
-		resp, err := rm.sdkapi.ListResolverEndpointIpAddressesWithContext(
+		resp, err := rm.sdkapi.ListResolverEndpointIpAddresses(
 			ctx,
 			&svcsdk.ListResolverEndpointIpAddressesInput{
 				ResolverEndpointId: resource.Status.ID,
@@ -60,8 +63,8 @@ func (rm *resourceManager) ListAttachedIPAddresses(
 			if elem.ModificationTime != nil {
 				f3.ModificationTime = elem.ModificationTime
 			}
-			if elem.Status != nil {
-				f3.Status = elem.Status
+			if elem.Status != "" {
+				f3.Status = aws.String(string(elem.Status))
 			}
 			if elem.StatusMessage != nil {
 				f3.StatusMessage = elem.StatusMessage
@@ -96,10 +99,10 @@ func (rm *resourceManager) SyncIPAddresses(
 
 	if len(added) > 0 {
 		for _, ipa := range added {
-			resp, err := rm.sdkapi.AssociateResolverEndpointIpAddressWithContext(
+			resp, err := rm.sdkapi.AssociateResolverEndpointIpAddress(
 				ctx,
 				&svcsdk.AssociateResolverEndpointIpAddressInput{
-					IpAddress: &svcsdk.IpAddressUpdate{
+					IpAddress: &svcsdktypes.IpAddressUpdate{
 						Ip:       ipa.IP,
 						Ipv6:     ipa.IPv6,
 						SubnetId: ipa.SubnetID,
@@ -111,16 +114,17 @@ func (rm *resourceManager) SyncIPAddresses(
 			if err != nil {
 				return err
 			}
-			latest.ko.Status.IPAddressCount = resp.ResolverEndpoint.IpAddressCount
+			countCopy := int64(*resp.ResolverEndpoint.IpAddressCount)
+			latest.ko.Status.IPAddressCount = &countCopy
 		}
 	}
 
 	if len(removed) > 0 {
 		for _, ipid := range removed {
-			resp, err := rm.sdkapi.DisassociateResolverEndpointIpAddressWithContext(
+			resp, err := rm.sdkapi.DisassociateResolverEndpointIpAddress(
 				ctx,
 				&svcsdk.DisassociateResolverEndpointIpAddressInput{
-					IpAddress: &svcsdk.IpAddressUpdate{
+					IpAddress: &svcsdktypes.IpAddressUpdate{
 						IpId: ipid,
 					},
 					ResolverEndpointId: latest.ko.Status.ID,
@@ -130,7 +134,8 @@ func (rm *resourceManager) SyncIPAddresses(
 			if err != nil {
 				return err
 			}
-			latest.ko.Status.IPAddressCount = resp.ResolverEndpoint.IpAddressCount
+			countCopy := int64(*resp.ResolverEndpoint.IpAddressCount)
+			latest.ko.Status.IPAddressCount = &countCopy
 		}
 	}
 

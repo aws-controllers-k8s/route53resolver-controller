@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -28,8 +29,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/route53resolver"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/route53resolver"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/route53resolver/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +43,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.Route53Resolver{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.ResolverRule{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +51,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -74,13 +77,11 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	var resp *svcsdk.GetResolverRuleOutput
-	resp, err = rm.sdkapi.GetResolverRuleWithContext(ctx, input)
+	resp, err = rm.sdkapi.GetResolverRule(ctx, input)
 	rm.metrics.RecordAPICall("READ_ONE", "GetResolverRule", err)
 	if err != nil {
-		if reqErr, ok := ackerr.AWSRequestFailure(err); ok && reqErr.StatusCode() == 404 {
-			return nil, ackerr.NotFound
-		}
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "UNKNOWN" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "ResourceNotFoundException" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -137,18 +138,18 @@ func (rm *resourceManager) sdkFind(
 	} else {
 		ko.Spec.ResolverEndpointID = nil
 	}
-	if resp.ResolverRule.RuleType != nil {
-		ko.Spec.RuleType = resp.ResolverRule.RuleType
+	if resp.ResolverRule.RuleType != "" {
+		ko.Spec.RuleType = aws.String(string(resp.ResolverRule.RuleType))
 	} else {
 		ko.Spec.RuleType = nil
 	}
-	if resp.ResolverRule.ShareStatus != nil {
-		ko.Status.ShareStatus = resp.ResolverRule.ShareStatus
+	if resp.ResolverRule.ShareStatus != "" {
+		ko.Status.ShareStatus = aws.String(string(resp.ResolverRule.ShareStatus))
 	} else {
 		ko.Status.ShareStatus = nil
 	}
-	if resp.ResolverRule.Status != nil {
-		ko.Status.Status = resp.ResolverRule.Status
+	if resp.ResolverRule.Status != "" {
+		ko.Status.Status = aws.String(string(resp.ResolverRule.Status))
 	} else {
 		ko.Status.Status = nil
 	}
@@ -168,7 +169,8 @@ func (rm *resourceManager) sdkFind(
 				f13elem.IPv6 = f13iter.Ipv6
 			}
 			if f13iter.Port != nil {
-				f13elem.Port = f13iter.Port
+				portCopy := int64(*f13iter.Port)
+				f13elem.Port = &portCopy
 			}
 			f13 = append(f13, f13elem)
 		}
@@ -204,7 +206,7 @@ func (rm *resourceManager) newDescribeRequestPayload(
 	res := &svcsdk.GetResolverRuleInput{}
 
 	if r.ko.Status.ID != nil {
-		res.SetResolverRuleId(*r.ko.Status.ID)
+		res.ResolverRuleId = r.ko.Status.ID
 	}
 
 	return res, nil
@@ -231,11 +233,11 @@ func (rm *resourceManager) sdkCreate(
 	// CreatorRequestId can be any unique string, for example, a date/time stamp.
 	// TODO: Name is not sufficient, since a failed request cannot be retried.
 	// We might need to import the `time` package into `sdk.go`
-	input.SetCreatorRequestId(getCreatorRequestId(desired.ko))
+	input.CreatorRequestId = getCreatorRequestId(desired.ko)
 
 	var resp *svcsdk.CreateResolverRuleOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreateResolverRuleWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreateResolverRule(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreateResolverRule", err)
 	if err != nil {
 		return nil, err
@@ -291,18 +293,18 @@ func (rm *resourceManager) sdkCreate(
 	} else {
 		ko.Spec.ResolverEndpointID = nil
 	}
-	if resp.ResolverRule.RuleType != nil {
-		ko.Spec.RuleType = resp.ResolverRule.RuleType
+	if resp.ResolverRule.RuleType != "" {
+		ko.Spec.RuleType = aws.String(string(resp.ResolverRule.RuleType))
 	} else {
 		ko.Spec.RuleType = nil
 	}
-	if resp.ResolverRule.ShareStatus != nil {
-		ko.Status.ShareStatus = resp.ResolverRule.ShareStatus
+	if resp.ResolverRule.ShareStatus != "" {
+		ko.Status.ShareStatus = aws.String(string(resp.ResolverRule.ShareStatus))
 	} else {
 		ko.Status.ShareStatus = nil
 	}
-	if resp.ResolverRule.Status != nil {
-		ko.Status.Status = resp.ResolverRule.Status
+	if resp.ResolverRule.Status != "" {
+		ko.Status.Status = aws.String(string(resp.ResolverRule.Status))
 	} else {
 		ko.Status.Status = nil
 	}
@@ -322,7 +324,8 @@ func (rm *resourceManager) sdkCreate(
 				f13elem.IPv6 = f13iter.Ipv6
 			}
 			if f13iter.Port != nil {
-				f13elem.Port = f13iter.Port
+				portCopy := int64(*f13iter.Port)
+				f13elem.Port = &portCopy
 			}
 			f13 = append(f13, f13elem)
 		}
@@ -350,47 +353,52 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreateResolverRuleInput{}
 
 	if r.ko.Spec.DomainName != nil {
-		res.SetDomainName(*r.ko.Spec.DomainName)
+		res.DomainName = r.ko.Spec.DomainName
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.ResolverEndpointID != nil {
-		res.SetResolverEndpointId(*r.ko.Spec.ResolverEndpointID)
+		res.ResolverEndpointId = r.ko.Spec.ResolverEndpointID
 	}
 	if r.ko.Spec.RuleType != nil {
-		res.SetRuleType(*r.ko.Spec.RuleType)
+		res.RuleType = svcsdktypes.RuleTypeOption(*r.ko.Spec.RuleType)
 	}
 	if r.ko.Spec.Tags != nil {
-		f4 := []*svcsdk.Tag{}
+		f4 := []svcsdktypes.Tag{}
 		for _, f4iter := range r.ko.Spec.Tags {
-			f4elem := &svcsdk.Tag{}
+			f4elem := &svcsdktypes.Tag{}
 			if f4iter.Key != nil {
-				f4elem.SetKey(*f4iter.Key)
+				f4elem.Key = f4iter.Key
 			}
 			if f4iter.Value != nil {
-				f4elem.SetValue(*f4iter.Value)
+				f4elem.Value = f4iter.Value
 			}
-			f4 = append(f4, f4elem)
+			f4 = append(f4, *f4elem)
 		}
-		res.SetTags(f4)
+		res.Tags = f4
 	}
 	if r.ko.Spec.TargetIPs != nil {
-		f5 := []*svcsdk.TargetAddress{}
+		f5 := []svcsdktypes.TargetAddress{}
 		for _, f5iter := range r.ko.Spec.TargetIPs {
-			f5elem := &svcsdk.TargetAddress{}
+			f5elem := &svcsdktypes.TargetAddress{}
 			if f5iter.IP != nil {
-				f5elem.SetIp(*f5iter.IP)
+				f5elem.Ip = f5iter.IP
 			}
 			if f5iter.IPv6 != nil {
-				f5elem.SetIpv6(*f5iter.IPv6)
+				f5elem.Ipv6 = f5iter.IPv6
 			}
 			if f5iter.Port != nil {
-				f5elem.SetPort(*f5iter.Port)
+				portCopy0 := *f5iter.Port
+				if portCopy0 > math.MaxInt32 || portCopy0 < math.MinInt32 {
+					return nil, fmt.Errorf("error: field Port is of type int32")
+				}
+				portCopy := int32(portCopy0)
+				f5elem.Port = &portCopy
 			}
-			f5 = append(f5, f5elem)
+			f5 = append(f5, *f5elem)
 		}
-		res.SetTargetIps(f5)
+		res.TargetIps = f5
 	}
 
 	return res, nil
@@ -430,7 +438,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeleteResolverRuleOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeleteResolverRuleWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeleteResolverRule(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteResolverRule", err)
 	return nil, err
 }
@@ -443,7 +451,7 @@ func (rm *resourceManager) newDeleteRequestPayload(
 	res := &svcsdk.DeleteResolverRuleInput{}
 
 	if r.ko.Status.ID != nil {
-		res.SetResolverRuleId(*r.ko.Status.ID)
+		res.ResolverRuleId = r.ko.Status.ID
 	}
 
 	return res, nil

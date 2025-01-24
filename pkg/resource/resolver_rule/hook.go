@@ -3,12 +3,14 @@ package resolver_rule
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	svcapitypes "github.com/aws-controllers-k8s/route53resolver-controller/apis/v1alpha1"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	svcsdk "github.com/aws/aws-sdk-go/service/route53resolver"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/route53resolver"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/route53resolver/types"
 	"github.com/samber/lo"
 )
 
@@ -17,8 +19,9 @@ var TypeVPCId = "VPCID"
 // getCreatorRequestId will generate a CreatorRequestId for a given resolver endpoint
 // using the name of the endpoint and the current timestamp, so that it produces a
 // unique value
-func getCreatorRequestId(rule *svcapitypes.ResolverRule) string {
-	return fmt.Sprintf("%s-%d", *rule.Spec.Name, time.Now().UnixMilli())
+func getCreatorRequestId(rule *svcapitypes.ResolverRule) *string {
+	requestId := fmt.Sprintf("%s-%d", *rule.Spec.Name, time.Now().UnixMilli())
+	return &requestId
 }
 
 // addRulesToSpec updates a resource's Spec EgressRules and IngressRules
@@ -35,17 +38,17 @@ func (rm *resourceManager) getAttachedVPC(
 
 	// ko.Spec.Associations = nil
 	input := &svcsdk.ListResolverRuleAssociationsInput{
-		Filters: []*svcsdk.Filter{
+		Filters: []svcsdktypes.Filter{
 			{
 				Name:   lo.ToPtr("ResolverRuleId"),
-				Values: []*string{latest.ko.Status.ID},
+				Values: []string{*latest.ko.Status.ID},
 			},
 		},
 	}
-	resolverRuleList, err := rm.sdkapi.ListResolverRuleAssociationsWithContext(ctx, input)
+	resolverRuleList, err := rm.sdkapi.ListResolverRuleAssociations(ctx, input)
 	rm.metrics.RecordAPICall("READ_ONE", "ListResolverRuleAssociations", err)
 	for _, association := range resolverRuleList.ResolverRuleAssociations {
-		if *association.Status != "DELETING" {
+		if association.Status != svcsdktypes.ResolverRuleAssociationStatusDeleting {
 			var svcassociation svcapitypes.ResolverRuleAssociation
 			svcassociation.VPCID = association.VPCId
 			associationList = append(associationList, &svcassociation)
@@ -114,14 +117,14 @@ func (rm *resourceManager) syncResolverRuleConfig(
 	defer exit(err)
 	input := &svcsdk.UpdateResolverRuleInput{}
 	if latest.ko.Status.ID != nil {
-		input.SetResolverRuleId(*latest.ko.Status.ID)
+		input.ResolverRuleId = latest.ko.Status.ID
 	}
-	resconf := &svcsdk.ResolverRuleConfig{}
-	resconf.SetName(*desired.ko.Spec.Name)
-	resconf.SetResolverEndpointId(*desired.ko.Spec.ResolverEndpointID)
-	var targip []*svcsdk.TargetAddress
+	resconf := &svcsdktypes.ResolverRuleConfig{}
+	resconf.Name = desired.ko.Spec.Name
+	resconf.ResolverEndpointId = desired.ko.Spec.ResolverEndpointID
+	var targip []svcsdktypes.TargetAddress
 	for _, tip := range desired.ko.Spec.TargetIPs {
-		targipelem := &svcsdk.TargetAddress{}
+		targipelem := svcsdktypes.TargetAddress{}
 		if tip.IP != nil {
 			targipelem.Ip = tip.IP
 		}
@@ -129,15 +132,19 @@ func (rm *resourceManager) syncResolverRuleConfig(
 			targipelem.Ipv6 = tip.IPv6
 		}
 		if tip.Port != nil {
-			targipelem.Port = tip.Port
+			if *tip.Port > math.MaxInt32 || *tip.Port < math.MaxInt32 {
+				return fmt.Errorf("error: field TargetAddress.Port is of type int32")
+			}
+			portCopy := int32(*tip.Port)
+			targipelem.Port = &portCopy
 		}
 		targip = append(targip, targipelem)
 	}
 	resconf.TargetIps = targip
-	input.SetConfig(resconf)
+	input.Config = resconf
 	var resp *svcsdk.UpdateResolverRuleOutput
 	_ = resp
-	_, err = rm.sdkapi.UpdateResolverRuleWithContext(ctx, input)
+	_, err = rm.sdkapi.UpdateResolverRule(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "UpdateResolverRule", err)
 	if err != nil {
 		return err
@@ -201,7 +208,7 @@ func (rm *resourceManager) deleteOldAssociations(
 		if rtype == TypeVPCId {
 			input.ResolverRuleId = desired.ko.Status.ID
 			input.VPCId = &rid
-			_, err = rm.sdkapi.DisassociateResolverRuleWithContext(ctx, input)
+			_, err = rm.sdkapi.DisassociateResolverRule(ctx, input)
 			rm.metrics.RecordAPICall("UPDATE", "DisassociateResolverRule", err)
 			if err != nil {
 				return err
@@ -222,7 +229,7 @@ func (rm *resourceManager) upsertNewAssociations(
 		if rtype == TypeVPCId {
 			input.ResolverRuleId = desired.ko.Status.ID
 			input.VPCId = &rid
-			_, err = rm.sdkapi.AssociateResolverRuleWithContext(ctx, input)
+			_, err = rm.sdkapi.AssociateResolverRule(ctx, input)
 			rm.metrics.RecordAPICall("UPDATE", "AssociateResolverRule", err)
 			if err != nil {
 				return err
