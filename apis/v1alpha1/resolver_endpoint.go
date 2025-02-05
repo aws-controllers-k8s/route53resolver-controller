@@ -44,12 +44,15 @@ type ResolverEndpointSpec struct {
 	// The subnets and IP addresses in your VPC that DNS queries originate from
 	// (for outbound endpoints) or that you forward DNS queries to (for inbound
 	// endpoints). The subnet ID uniquely identifies a VPC.
+	//
+	// Even though the minimum is 1, Route 53 requires that you create at least
+	// two.
 	// +kubebuilder:validation:Required
 	IPAddresses []*IPAddressRequest `json:"ipAddresses,omitempty"`
 	// A friendly name that lets you easily find a configuration in the Resolver
 	// dashboard in the Route 53 console.
 	Name *string `json:"name,omitempty"`
-	// For the endpoint type you can choose either IPv4, IPv6. or dual-stack. A
+	// For the endpoint type you can choose either IPv4, IPv6, or dual-stack. A
 	// dual-stack endpoint means that it will resolve via both IPv4 and IPv6. This
 	// endpoint type is applied to all IP addresses.
 	ResolverEndpointType *string `json:"resolverEndpointType,omitempty"`
@@ -59,6 +62,13 @@ type ResolverEndpointSpec struct {
 	// Resolver endpoints). Inbound and outbound rules must allow TCP and UDP access.
 	// For inbound access, open port 53. For outbound access, open the port that
 	// you're using for DNS queries on your network.
+	//
+	// Some security group rules will cause your connection to be tracked. For outbound
+	// resolver endpoint, it can potentially impact the maximum queries per second
+	// from outbound endpoint to your target name server. For inbound resolver endpoint,
+	// it can bring down the overall maximum queries per second per IP address to
+	// as low as 1500. To avoid connection tracking caused by security group, see
+	// Untracked connections (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#untracked-connectionsl).
 	SecurityGroupIDs  []*string                                  `json:"securityGroupIDs,omitempty"`
 	SecurityGroupRefs []*ackv1alpha1.AWSResourceReferenceWrapper `json:"securityGroupRefs,omitempty"`
 	// A list of the tag keys and values that you want to associate with the endpoint.

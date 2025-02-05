@@ -3,4 +3,4 @@
     // CreatorRequestId can be any unique string, for example, a date/time stamp.
     // TODO: Name is not sufficient, since a failed request cannot be retried.
     // We might need to import the `time` package into `sdk.go`
-    input.SetCreatorRequestId(getCreatorRequestId(desired.ko))
+	input.CreatorRequestId = getCreatorRequestId(desired.ko)

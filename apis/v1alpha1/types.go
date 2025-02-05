@@ -80,12 +80,13 @@ type FirewallDomainListMetadata struct {
 
 // A single firewall rule in a rule group.
 type FirewallRule struct {
-	CreationTime         *string `json:"creationTime,omitempty"`
-	CreatorRequestID     *string `json:"creatorRequestID,omitempty"`
-	FirewallDomainListID *string `json:"firewallDomainListID,omitempty"`
-	FirewallRuleGroupID  *string `json:"firewallRuleGroupID,omitempty"`
-	ModificationTime     *string `json:"modificationTime,omitempty"`
-	Name                 *string `json:"name,omitempty"`
+	CreationTime               *string `json:"creationTime,omitempty"`
+	CreatorRequestID           *string `json:"creatorRequestID,omitempty"`
+	FirewallDomainListID       *string `json:"firewallDomainListID,omitempty"`
+	FirewallRuleGroupID        *string `json:"firewallRuleGroupID,omitempty"`
+	FirewallThreatProtectionID *string `json:"firewallThreatProtectionID,omitempty"`
+	ModificationTime           *string `json:"modificationTime,omitempty"`
+	Name                       *string `json:"name,omitempty"`
 }
 
 // High-level information for a firewall rule group. A firewall rule group is
@@ -164,6 +165,15 @@ type IPAddressUpdate struct {
 	IPID     *string `json:"ipID,omitempty"`
 	IPv6     *string `json:"ipv6,omitempty"`
 	SubnetID *string `json:"subnetID,omitempty"`
+}
+
+// A complex type that contains settings for an existing Resolver on an Outpost.
+type OutpostResolver struct {
+	ARN              *string `json:"arn,omitempty"`
+	CreationTime     *string `json:"creationTime,omitempty"`
+	CreatorRequestID *string `json:"creatorRequestID,omitempty"`
+	ID               *string `json:"id,omitempty"`
+	ModificationTime *string `json:"modificationTime,omitempty"`
 }
 
 // A complex type that contains information about a Resolver configuration for

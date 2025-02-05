@@ -28,8 +28,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/route53resolver"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/route53resolver"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/route53resolver/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +42,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.Route53Resolver{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.ResolverEndpoint{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +50,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -74,13 +76,11 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	var resp *svcsdk.GetResolverEndpointOutput
-	resp, err = rm.sdkapi.GetResolverEndpointWithContext(ctx, input)
+	resp, err = rm.sdkapi.GetResolverEndpoint(ctx, input)
 	rm.metrics.RecordAPICall("READ_ONE", "GetResolverEndpoint", err)
 	if err != nil {
-		if reqErr, ok := ackerr.AWSRequestFailure(err); ok && reqErr.StatusCode() == 404 {
-			return nil, ackerr.NotFound
-		}
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "UNKNOWN" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "ResourceNotFoundException" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -107,8 +107,8 @@ func (rm *resourceManager) sdkFind(
 	} else {
 		ko.Status.CreatorRequestID = nil
 	}
-	if resp.ResolverEndpoint.Direction != nil {
-		ko.Spec.Direction = resp.ResolverEndpoint.Direction
+	if resp.ResolverEndpoint.Direction != "" {
+		ko.Spec.Direction = aws.String(string(resp.ResolverEndpoint.Direction))
 	} else {
 		ko.Spec.Direction = nil
 	}
@@ -123,7 +123,8 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.ID = nil
 	}
 	if resp.ResolverEndpoint.IpAddressCount != nil {
-		ko.Status.IPAddressCount = resp.ResolverEndpoint.IpAddressCount
+		ipAddressCountCopy := int64(*resp.ResolverEndpoint.IpAddressCount)
+		ko.Status.IPAddressCount = &ipAddressCountCopy
 	} else {
 		ko.Status.IPAddressCount = nil
 	}
@@ -137,24 +138,18 @@ func (rm *resourceManager) sdkFind(
 	} else {
 		ko.Spec.Name = nil
 	}
-	if resp.ResolverEndpoint.ResolverEndpointType != nil {
-		ko.Spec.ResolverEndpointType = resp.ResolverEndpoint.ResolverEndpointType
+	if resp.ResolverEndpoint.ResolverEndpointType != "" {
+		ko.Spec.ResolverEndpointType = aws.String(string(resp.ResolverEndpoint.ResolverEndpointType))
 	} else {
 		ko.Spec.ResolverEndpointType = nil
 	}
 	if resp.ResolverEndpoint.SecurityGroupIds != nil {
-		f10 := []*string{}
-		for _, f10iter := range resp.ResolverEndpoint.SecurityGroupIds {
-			var f10elem string
-			f10elem = *f10iter
-			f10 = append(f10, &f10elem)
-		}
-		ko.Spec.SecurityGroupIDs = f10
+		ko.Spec.SecurityGroupIDs = aws.StringSlice(resp.ResolverEndpoint.SecurityGroupIds)
 	} else {
 		ko.Spec.SecurityGroupIDs = nil
 	}
-	if resp.ResolverEndpoint.Status != nil {
-		ko.Status.Status = resp.ResolverEndpoint.Status
+	if resp.ResolverEndpoint.Status != "" {
+		ko.Status.Status = aws.String(string(resp.ResolverEndpoint.Status))
 	} else {
 		ko.Status.Status = nil
 	}
@@ -187,7 +182,7 @@ func (rm *resourceManager) newDescribeRequestPayload(
 	res := &svcsdk.GetResolverEndpointInput{}
 
 	if r.ko.Status.ID != nil {
-		res.SetResolverEndpointId(*r.ko.Status.ID)
+		res.ResolverEndpointId = r.ko.Status.ID
 	}
 
 	return res, nil
@@ -214,11 +209,11 @@ func (rm *resourceManager) sdkCreate(
 	// CreatorRequestId can be any unique string, for example, a date/time stamp.
 	// TODO: Name is not sufficient, since a failed request cannot be retried.
 	// We might need to import the `time` package into `sdk.go`
-	input.SetCreatorRequestId(getCreatorRequestId(desired.ko))
+	input.CreatorRequestId = getCreatorRequestId(desired.ko)
 
 	var resp *svcsdk.CreateResolverEndpointOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreateResolverEndpointWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreateResolverEndpoint(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreateResolverEndpoint", err)
 	if err != nil {
 		return nil, err
@@ -244,8 +239,8 @@ func (rm *resourceManager) sdkCreate(
 	} else {
 		ko.Status.CreatorRequestID = nil
 	}
-	if resp.ResolverEndpoint.Direction != nil {
-		ko.Spec.Direction = resp.ResolverEndpoint.Direction
+	if resp.ResolverEndpoint.Direction != "" {
+		ko.Spec.Direction = aws.String(string(resp.ResolverEndpoint.Direction))
 	} else {
 		ko.Spec.Direction = nil
 	}
@@ -260,7 +255,8 @@ func (rm *resourceManager) sdkCreate(
 		ko.Status.ID = nil
 	}
 	if resp.ResolverEndpoint.IpAddressCount != nil {
-		ko.Status.IPAddressCount = resp.ResolverEndpoint.IpAddressCount
+		ipAddressCountCopy := int64(*resp.ResolverEndpoint.IpAddressCount)
+		ko.Status.IPAddressCount = &ipAddressCountCopy
 	} else {
 		ko.Status.IPAddressCount = nil
 	}
@@ -274,24 +270,18 @@ func (rm *resourceManager) sdkCreate(
 	} else {
 		ko.Spec.Name = nil
 	}
-	if resp.ResolverEndpoint.ResolverEndpointType != nil {
-		ko.Spec.ResolverEndpointType = resp.ResolverEndpoint.ResolverEndpointType
+	if resp.ResolverEndpoint.ResolverEndpointType != "" {
+		ko.Spec.ResolverEndpointType = aws.String(string(resp.ResolverEndpoint.ResolverEndpointType))
 	} else {
 		ko.Spec.ResolverEndpointType = nil
 	}
 	if resp.ResolverEndpoint.SecurityGroupIds != nil {
-		f10 := []*string{}
-		for _, f10iter := range resp.ResolverEndpoint.SecurityGroupIds {
-			var f10elem string
-			f10elem = *f10iter
-			f10 = append(f10, &f10elem)
-		}
-		ko.Spec.SecurityGroupIDs = f10
+		ko.Spec.SecurityGroupIDs = aws.StringSlice(resp.ResolverEndpoint.SecurityGroupIds)
 	} else {
 		ko.Spec.SecurityGroupIDs = nil
 	}
-	if resp.ResolverEndpoint.Status != nil {
-		ko.Status.Status = resp.ResolverEndpoint.Status
+	if resp.ResolverEndpoint.Status != "" {
+		ko.Status.Status = aws.String(string(resp.ResolverEndpoint.Status))
 	} else {
 		ko.Status.Status = nil
 	}
@@ -315,53 +305,47 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreateResolverEndpointInput{}
 
 	if r.ko.Spec.Direction != nil {
-		res.SetDirection(*r.ko.Spec.Direction)
+		res.Direction = svcsdktypes.ResolverEndpointDirection(*r.ko.Spec.Direction)
 	}
 	if r.ko.Spec.IPAddresses != nil {
-		f1 := []*svcsdk.IpAddressRequest{}
+		f1 := []svcsdktypes.IpAddressRequest{}
 		for _, f1iter := range r.ko.Spec.IPAddresses {
-			f1elem := &svcsdk.IpAddressRequest{}
+			f1elem := &svcsdktypes.IpAddressRequest{}
 			if f1iter.IP != nil {
-				f1elem.SetIp(*f1iter.IP)
+				f1elem.Ip = f1iter.IP
 			}
 			if f1iter.IPv6 != nil {
-				f1elem.SetIpv6(*f1iter.IPv6)
+				f1elem.Ipv6 = f1iter.IPv6
 			}
 			if f1iter.SubnetID != nil {
-				f1elem.SetSubnetId(*f1iter.SubnetID)
+				f1elem.SubnetId = f1iter.SubnetID
 			}
-			f1 = append(f1, f1elem)
+			f1 = append(f1, *f1elem)
 		}
-		res.SetIpAddresses(f1)
+		res.IpAddresses = f1
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.ResolverEndpointType != nil {
-		res.SetResolverEndpointType(*r.ko.Spec.ResolverEndpointType)
+		res.ResolverEndpointType = svcsdktypes.ResolverEndpointType(*r.ko.Spec.ResolverEndpointType)
 	}
 	if r.ko.Spec.SecurityGroupIDs != nil {
-		f4 := []*string{}
-		for _, f4iter := range r.ko.Spec.SecurityGroupIDs {
-			var f4elem string
-			f4elem = *f4iter
-			f4 = append(f4, &f4elem)
-		}
-		res.SetSecurityGroupIds(f4)
+		res.SecurityGroupIds = aws.ToStringSlice(r.ko.Spec.SecurityGroupIDs)
 	}
 	if r.ko.Spec.Tags != nil {
-		f5 := []*svcsdk.Tag{}
+		f5 := []svcsdktypes.Tag{}
 		for _, f5iter := range r.ko.Spec.Tags {
-			f5elem := &svcsdk.Tag{}
+			f5elem := &svcsdktypes.Tag{}
 			if f5iter.Key != nil {
-				f5elem.SetKey(*f5iter.Key)
+				f5elem.Key = f5iter.Key
 			}
 			if f5iter.Value != nil {
-				f5elem.SetValue(*f5iter.Value)
+				f5elem.Value = f5iter.Value
 			}
-			f5 = append(f5, f5elem)
+			f5 = append(f5, *f5elem)
 		}
-		res.SetTags(f5)
+		res.Tags = f5
 	}
 
 	return res, nil
@@ -387,7 +371,7 @@ func (rm *resourceManager) sdkUpdate(
 
 	var resp *svcsdk.UpdateResolverEndpointOutput
 	_ = resp
-	resp, err = rm.sdkapi.UpdateResolverEndpointWithContext(ctx, input)
+	resp, err = rm.sdkapi.UpdateResolverEndpoint(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "UpdateResolverEndpoint", err)
 	if err != nil {
 		return nil, err
@@ -413,8 +397,8 @@ func (rm *resourceManager) sdkUpdate(
 	} else {
 		ko.Status.CreatorRequestID = nil
 	}
-	if resp.ResolverEndpoint.Direction != nil {
-		ko.Spec.Direction = resp.ResolverEndpoint.Direction
+	if resp.ResolverEndpoint.Direction != "" {
+		ko.Spec.Direction = aws.String(string(resp.ResolverEndpoint.Direction))
 	} else {
 		ko.Spec.Direction = nil
 	}
@@ -429,7 +413,8 @@ func (rm *resourceManager) sdkUpdate(
 		ko.Status.ID = nil
 	}
 	if resp.ResolverEndpoint.IpAddressCount != nil {
-		ko.Status.IPAddressCount = resp.ResolverEndpoint.IpAddressCount
+		ipAddressCountCopy := int64(*resp.ResolverEndpoint.IpAddressCount)
+		ko.Status.IPAddressCount = &ipAddressCountCopy
 	} else {
 		ko.Status.IPAddressCount = nil
 	}
@@ -443,24 +428,18 @@ func (rm *resourceManager) sdkUpdate(
 	} else {
 		ko.Spec.Name = nil
 	}
-	if resp.ResolverEndpoint.ResolverEndpointType != nil {
-		ko.Spec.ResolverEndpointType = resp.ResolverEndpoint.ResolverEndpointType
+	if resp.ResolverEndpoint.ResolverEndpointType != "" {
+		ko.Spec.ResolverEndpointType = aws.String(string(resp.ResolverEndpoint.ResolverEndpointType))
 	} else {
 		ko.Spec.ResolverEndpointType = nil
 	}
 	if resp.ResolverEndpoint.SecurityGroupIds != nil {
-		f10 := []*string{}
-		for _, f10iter := range resp.ResolverEndpoint.SecurityGroupIds {
-			var f10elem string
-			f10elem = *f10iter
-			f10 = append(f10, &f10elem)
-		}
-		ko.Spec.SecurityGroupIDs = f10
+		ko.Spec.SecurityGroupIDs = aws.StringSlice(resp.ResolverEndpoint.SecurityGroupIds)
 	} else {
 		ko.Spec.SecurityGroupIDs = nil
 	}
-	if resp.ResolverEndpoint.Status != nil {
-		ko.Status.Status = resp.ResolverEndpoint.Status
+	if resp.ResolverEndpoint.Status != "" {
+		ko.Status.Status = aws.String(string(resp.ResolverEndpoint.Status))
 	} else {
 		ko.Status.Status = nil
 	}
@@ -488,13 +467,13 @@ func (rm *resourceManager) newUpdateRequestPayload(
 	res := &svcsdk.UpdateResolverEndpointInput{}
 
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Status.ID != nil {
-		res.SetResolverEndpointId(*r.ko.Status.ID)
+		res.ResolverEndpointId = r.ko.Status.ID
 	}
 	if r.ko.Spec.ResolverEndpointType != nil {
-		res.SetResolverEndpointType(*r.ko.Spec.ResolverEndpointType)
+		res.ResolverEndpointType = svcsdktypes.ResolverEndpointType(*r.ko.Spec.ResolverEndpointType)
 	}
 
 	return res, nil
@@ -516,7 +495,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeleteResolverEndpointOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeleteResolverEndpointWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeleteResolverEndpoint(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteResolverEndpoint", err)
 	return nil, err
 }
@@ -529,7 +508,7 @@ func (rm *resourceManager) newDeleteRequestPayload(
 	res := &svcsdk.DeleteResolverEndpointInput{}
 
 	if r.ko.Status.ID != nil {
-		res.SetResolverEndpointId(*r.ko.Status.ID)
+		res.ResolverEndpointId = r.ko.Status.ID
 	}
 
 	return res, nil
