@@ -36,12 +36,15 @@ type ResolverRuleSpec struct {
 	// specify in TargetIps. If a query matches multiple Resolver rules (example.com
 	// and www.example.com), outbound DNS queries are routed using the Resolver
 	// rule that contains the most specific domain name (www.example.com).
+
 	DomainName *string `json:"domainName,omitempty"`
 	// A friendly name that lets you easily find a rule in the Resolver dashboard
 	// in the Route 53 console.
+
 	Name *string `json:"name,omitempty"`
 	// The ID of the outbound Resolver endpoint that you want to use to route DNS
 	// queries to the IP addresses that you specify in TargetIps.
+
 	ResolverEndpointID *string `json:"resolverEndpointID,omitempty"`
 	// When you want to forward DNS queries for specified domain name to resolvers
 	// on your network, specify FORWARD.
@@ -57,15 +60,19 @@ type ResolverRuleSpec struct {
 	//
 	// Currently, only Resolver can create rules that have a value of RECURSIVE
 	// for RuleType.
+
 	// +kubebuilder:validation:Required
+
 	RuleType *string `json:"ruleType"`
 	// A list of the tag keys and values that you want to associate with the endpoint.
+
 	Tags []*Tag `json:"tags,omitempty"`
 	// The IPs that you want Resolver to forward DNS queries to. You can specify
 	// either Ipv4 or Ipv6 addresses but not both in the same rule. Separate IP
 	// addresses with a space.
 	//
 	// TargetIps is available only when the value of Rule type is FORWARD.
+
 	TargetIPs []*TargetAddress `json:"targetIPs,omitempty"`
 }
 
@@ -76,7 +83,7 @@ type ResolverRuleStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource
