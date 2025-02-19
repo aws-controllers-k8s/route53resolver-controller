@@ -33,13 +33,14 @@ type ResolverEndpointSpec struct {
 
 	// Specify the applicable value:
 	//
-	//   - INBOUND: Resolver forwards DNS queries to the DNS service for a VPC
-	//     from your network
+	//    * INBOUND: Resolver forwards DNS queries to the DNS service for a VPC
+	//    from your network
 	//
-	//   - OUTBOUND: Resolver forwards DNS queries from the DNS service for a VPC
-	//     to your network
-	//
+	//    * OUTBOUND: Resolver forwards DNS queries from the DNS service for a VPC
+	//    to your network
+
 	// +kubebuilder:validation:Required
+
 	Direction *string `json:"direction"`
 	// The subnets and IP addresses in your VPC that DNS queries originate from
 	// (for outbound endpoints) or that you forward DNS queries to (for inbound
@@ -47,14 +48,18 @@ type ResolverEndpointSpec struct {
 	//
 	// Even though the minimum is 1, Route 53 requires that you create at least
 	// two.
+
 	// +kubebuilder:validation:Required
+
 	IPAddresses []*IPAddressRequest `json:"ipAddresses,omitempty"`
 	// A friendly name that lets you easily find a configuration in the Resolver
 	// dashboard in the Route 53 console.
+
 	Name *string `json:"name,omitempty"`
 	// For the endpoint type you can choose either IPv4, IPv6, or dual-stack. A
 	// dual-stack endpoint means that it will resolve via both IPv4 and IPv6. This
 	// endpoint type is applied to all IP addresses.
+
 	ResolverEndpointType *string `json:"resolverEndpointType,omitempty"`
 	// The ID of one or more security groups that you want to use to control access
 	// to this VPC. The security group that you specify must include one or more
@@ -69,9 +74,12 @@ type ResolverEndpointSpec struct {
 	// it can bring down the overall maximum queries per second per IP address to
 	// as low as 1500. To avoid connection tracking caused by security group, see
 	// Untracked connections (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#untracked-connectionsl).
-	SecurityGroupIDs  []*string                                  `json:"securityGroupIDs,omitempty"`
+
+	SecurityGroupIDs []*string `json:"securityGroupIDs,omitempty"`
+
 	SecurityGroupRefs []*ackv1alpha1.AWSResourceReferenceWrapper `json:"securityGroupRefs,omitempty"`
 	// A list of the tag keys and values that you want to associate with the endpoint.
+
 	Tags []*Tag `json:"tags,omitempty"`
 }
 
@@ -82,7 +90,7 @@ type ResolverEndpointStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource
