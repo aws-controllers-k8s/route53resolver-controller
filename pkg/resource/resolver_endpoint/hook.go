@@ -6,6 +6,7 @@ import (
 	"time"
 
 	svcapitypes "github.com/aws-controllers-k8s/route53resolver-controller/apis/v1alpha1"
+	"github.com/aws-controllers-k8s/route53resolver-controller/pkg/tags"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/route53resolver"
@@ -172,4 +173,21 @@ func inIpAddress(
 		}
 	}
 	return false
+}
+
+// getTags retrieves the resource's associated tags.
+func (rm *resourceManager) getTags(
+	ctx context.Context,
+	resourceARN string,
+) ([]*svcapitypes.Tag, error) {
+	return tags.GetTags(ctx, rm.sdkapi, rm.metrics, resourceARN)
+}
+
+// syncTags keeps the resource's tags in sync.
+func (rm *resourceManager) syncTags(
+	ctx context.Context,
+	desired *resource,
+	latest *resource,
+) (err error) {
+	return tags.SyncTags(ctx, desired.ko.Spec.Tags, latest.ko.Spec.Tags, latest.ko.Status.ACKResourceMetadata, convertToOrderedACKTags, rm.sdkapi, rm.metrics)
 }

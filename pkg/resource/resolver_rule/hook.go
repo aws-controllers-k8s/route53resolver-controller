@@ -7,6 +7,7 @@ import (
 	"time"
 
 	svcapitypes "github.com/aws-controllers-k8s/route53resolver-controller/apis/v1alpha1"
+	"github.com/aws-controllers-k8s/route53resolver-controller/pkg/tags"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/route53resolver"
@@ -66,6 +67,14 @@ func (rm *resourceManager) customUpdateResolverRule(
 	rlog := ackrtlog.FromContext(ctx)
 	exit := rlog.Trace("rm.customUpdateResolverRule")
 	defer exit(err)
+
+	if delta.DifferentAt("Spec.Tags") {
+		if err = rm.syncTags(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	} else if !delta.DifferentExcept("Spec.Tags") {
+		return desired, nil
+	}
 
 	// Default `updated` to `desired` because it is likely
 	// EC2 `modify` APIs do NOT return output, only errors.
@@ -237,4 +246,21 @@ func (rm *resourceManager) upsertNewAssociations(
 		}
 	}
 	return nil
+}
+
+// getTags retrieves the resource's associated tags.
+func (rm *resourceManager) getTags(
+	ctx context.Context,
+	resourceARN string,
+) ([]*svcapitypes.Tag, error) {
+	return tags.GetTags(ctx, rm.sdkapi, rm.metrics, resourceARN)
+}
+
+// syncTags keeps the resource's tags in sync.
+func (rm *resourceManager) syncTags(
+	ctx context.Context,
+	desired *resource,
+	latest *resource,
+) (err error) {
+	return tags.SyncTags(ctx, desired.ko.Spec.Tags, latest.ko.Spec.Tags, latest.ko.Status.ACKResourceMetadata, convertToOrderedACKTags, rm.sdkapi, rm.metrics)
 }

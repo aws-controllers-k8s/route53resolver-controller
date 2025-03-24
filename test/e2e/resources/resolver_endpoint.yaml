@@ -11,3 +11,8 @@ spec:
     - subnetID: $SUBNET_2
   securityGroupIDs:
     - $SECURITY_GROUP
+  tags:
+    - key: k1
+      value: v1
+    - key: k2
+      value: v2
