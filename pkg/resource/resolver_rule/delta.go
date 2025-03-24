@@ -78,12 +78,10 @@ func newResourceDelta(
 			delta.Add("Spec.RuleType", a.ko.Spec.RuleType, b.ko.Spec.RuleType)
 		}
 	}
-	if len(a.ko.Spec.Tags) != len(b.ko.Spec.Tags) {
+	desiredACKTags, _ := convertToOrderedACKTags(a.ko.Spec.Tags)
+	latestACKTags, _ := convertToOrderedACKTags(b.ko.Spec.Tags)
+	if !ackcompare.MapStringStringEqual(desiredACKTags, latestACKTags) {
 		delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
-	} else if len(a.ko.Spec.Tags) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.Tags, b.ko.Spec.Tags) {
-			delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
-		}
 	}
 	if len(a.ko.Spec.TargetIPs) != len(b.ko.Spec.TargetIPs) {
 		delta.Add("Spec.TargetIPs", a.ko.Spec.TargetIPs, b.ko.Spec.TargetIPs)

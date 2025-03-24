@@ -161,6 +161,13 @@ func (rm *resourceManager) sdkFind(
 
 	rm.setStatusDefaults(ko)
 	rm.ListAttachedIPAddresses(ctx, ko)
+
+	tags, err := rm.getTags(ctx, string(*ko.Status.ACKResourceMetadata.ARN))
+	if err != nil {
+		return nil, err
+	}
+	ko.Spec.Tags = tags
+
 	return &resource{ko}, nil
 }
 
@@ -364,6 +371,14 @@ func (rm *resourceManager) sdkUpdate(
 	defer func() {
 		exit(err)
 	}()
+	if delta.DifferentAt("Spec.Tags") {
+		if err = rm.syncTags(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	} else if !delta.DifferentExcept("Spec.Tags") {
+		return desired, nil
+	}
+
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
 	if err != nil {
 		return nil, err

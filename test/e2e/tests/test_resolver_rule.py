@@ -24,6 +24,7 @@ import pytest
 from acktest.k8s import resource as k8s
 from acktest.k8s import condition
 from acktest.resources import random_suffix_name
+from acktest import tags as tagutil
 from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_route53resolver_resource
 from e2e.replacement_values import REPLACEMENT_VALUES
 from e2e.bootstrap_resources import get_bootstrap_resources
@@ -137,4 +138,54 @@ class TestResolverRule:
             assert aws_res is not None
         except route53resolver_client.exceptions.ResourceNotFoundException:
             pytest.fail(f"Could not find Resolver Rule with ID '{resolver_rule_id}' in Route53")
+
+        latest_tags = route53resolver_client.list_tags_for_resource(
+            ResourceArn=cr["status"]["ackResourceMetadata"]["arn"],
+        )["Tags"]
+        tagutil.assert_ack_system_tags(
+            tags=latest_tags,
+        )
+
+        user_tags = cr['spec']['tags']
+        user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
+
+        tagutil.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=latest_tags,
+        )
+
+        new_tags = [
+            {
+                "key": "k1",
+                "value": "v11"
+            },
+            {
+                "key": "k3",
+                "value": "v3"
+            }     
+        ]
+        updates = {
+            "spec": {
+                "tags": new_tags
+            }
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+
+        cr = k8s.get_resource(ref)
+        latest_tags = route53resolver_client.list_tags_for_resource(
+            ResourceArn=cr["status"]["ackResourceMetadata"]["arn"],
+        )["Tags"]
+        tags = tagutil.clean(latest_tags)
+        tagutil.assert_ack_system_tags(
+            tags=latest_tags,
+        )
+
+        user_tags = cr['spec']['tags']
+        user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
+
+        tagutil.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=latest_tags,
+        )
 
