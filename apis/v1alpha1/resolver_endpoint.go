@@ -51,6 +51,8 @@ type ResolverEndpointSpec struct {
 	IPAddresses []*IPAddressRequest `json:"ipAddresses,omitempty"`
 	// A friendly name that lets you easily find a configuration in the Resolver
 	// dashboard in the Route 53 console.
+	//
+	// Regex Pattern: `^(?!^[0-9]+$)([a-zA-Z0-9\-_' ']+)$`
 	Name *string `json:"name,omitempty"`
 	// For the endpoint type you can choose either IPv4, IPv6, or dual-stack. A
 	// dual-stack endpoint means that it will resolve via both IPv4 and IPv6. This
