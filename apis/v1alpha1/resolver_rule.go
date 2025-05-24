@@ -39,6 +39,8 @@ type ResolverRuleSpec struct {
 	DomainName *string `json:"domainName,omitempty"`
 	// A friendly name that lets you easily find a rule in the Resolver dashboard
 	// in the Route 53 console.
+	//
+	// Regex Pattern: `^(?!^[0-9]+$)([a-zA-Z0-9\-_' ']+)$`
 	Name *string `json:"name,omitempty"`
 	// The ID of the outbound Resolver endpoint that you want to use to route DNS
 	// queries to the IP addresses that you specify in TargetIps.
