@@ -164,8 +164,11 @@ class TestResolverRule:
                 "value": "v3"
             }     
         ]
+
+        new_resolver_rule_name = random_suffix_name("new_resolver_rule_name", 24)
         updates = {
             "spec": {
+                "name": new_resolver_rule_name,
                 "tags": new_tags
             }
         }
@@ -188,4 +191,10 @@ class TestResolverRule:
             expected=user_tags,
             actual=latest_tags,
         )
+        
+        latest_resolver_rule = route53resolver_client.get_resolver_rule(
+            ResolverRuleId=resolver_rule_id,
+        )["ResolverRule"]
 
+        assert 'Name' in latest_resolver_rule
+        assert latest_resolver_rule['Name'] == new_resolver_rule_name

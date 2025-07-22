@@ -9,13 +9,17 @@ import (
 	svcapitypes "github.com/aws-controllers-k8s/route53resolver-controller/apis/v1alpha1"
 	"github.com/aws-controllers-k8s/route53resolver-controller/pkg/tags"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
+	"github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/route53resolver"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/route53resolver/types"
 	"github.com/samber/lo"
 )
 
-var TypeVPCId = "VPCID"
+var (
+	TypeVPCId       = "VPCID"
+	RequeueOnUpdate = requeue.Needed(fmt.Errorf("requeing to sync resource status"))
+)
 
 // getCreatorRequestId will generate a CreatorRequestId for a given resolver endpoint
 // using the name of the endpoint and the current timestamp, so that it produces a
@@ -72,7 +76,14 @@ func (rm *resourceManager) customUpdateResolverRule(
 		if err = rm.syncTags(ctx, desired, latest); err != nil {
 			return nil, err
 		}
-	} else if !delta.DifferentExcept("Spec.Tags") {
+	}
+	if delta.DifferentAt("Spec.Associations") {
+		if err := rm.syncAssociation(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+
+	if !delta.DifferentExcept("Spec.Tags", "Spec.Associations") {
 		return desired, nil
 	}
 
@@ -83,25 +94,13 @@ func (rm *resourceManager) customUpdateResolverRule(
 	// (now updated.Spec) reflects the latest resource state.
 	updated = rm.concreteResource(desired.DeepCopy())
 
-	if delta.DifferentAt("Spec.Associations") {
-
-		if err := rm.syncAssociation(ctx, desired, latest); err != nil {
-			return nil, err
-		}
-		latest.ko.Spec.Associations = desired.ko.Spec.Associations
-	}
-
-	if delta.DifferentAt("Spec.TargetIPs") {
+	if delta.DifferentAt("Spec.TargetIPs") || delta.DifferentAt("Spec.Name") {
 		if err := rm.syncResolverRuleConfig(ctx, desired, latest); err != nil {
 			return nil, err
 		}
 	}
-	updated, err = rm.sdkFind(ctx, desired)
-	if err != nil {
-		return nil, err
-	}
 
-	return updated, nil
+	return updated, RequeueOnUpdate
 }
 
 func (rm *resourceManager) createAssociation(
@@ -141,7 +140,7 @@ func (rm *resourceManager) syncResolverRuleConfig(
 			targipelem.Ipv6 = tip.IPv6
 		}
 		if tip.Port != nil {
-			if *tip.Port > math.MaxInt32 || *tip.Port < math.MaxInt32 {
+			if *tip.Port > math.MaxInt32 || *tip.Port < math.MinInt32 {
 				return fmt.Errorf("error: field TargetAddress.Port is of type int32")
 			}
 			portCopy := int32(*tip.Port)
@@ -150,6 +149,7 @@ func (rm *resourceManager) syncResolverRuleConfig(
 		targip = append(targip, targipelem)
 	}
 	resconf.TargetIps = targip
+	resconf.Name = desired.ko.Spec.Name
 	input.Config = resconf
 	var resp *svcsdk.UpdateResolverRuleOutput
 	_ = resp
