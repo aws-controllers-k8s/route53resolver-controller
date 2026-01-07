@@ -17,16 +17,15 @@ package resolver_endpoint
 
 import (
 	"bytes"
-	"reflect"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Hack to avoid import errors during build...
 var (
 	_ = &bytes.Buffer{}
-	_ = &reflect.Method{}
 	_ = &acktags.Tags{}
 )
 
@@ -53,7 +52,7 @@ func newResourceDelta(
 	if len(a.ko.Spec.IPAddresses) != len(b.ko.Spec.IPAddresses) {
 		delta.Add("Spec.IPAddresses", a.ko.Spec.IPAddresses, b.ko.Spec.IPAddresses)
 	} else if len(a.ko.Spec.IPAddresses) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.IPAddresses, b.ko.Spec.IPAddresses) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.IPAddresses, b.ko.Spec.IPAddresses) {
 			delta.Add("Spec.IPAddresses", a.ko.Spec.IPAddresses, b.ko.Spec.IPAddresses)
 		}
 	}
@@ -78,7 +77,7 @@ func newResourceDelta(
 			delta.Add("Spec.SecurityGroupIDs", a.ko.Spec.SecurityGroupIDs, b.ko.Spec.SecurityGroupIDs)
 		}
 	}
-	if !reflect.DeepEqual(a.ko.Spec.SecurityGroupRefs, b.ko.Spec.SecurityGroupRefs) {
+	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.SecurityGroupRefs, b.ko.Spec.SecurityGroupRefs) {
 		delta.Add("Spec.SecurityGroupRefs", a.ko.Spec.SecurityGroupRefs, b.ko.Spec.SecurityGroupRefs)
 	}
 	desiredACKTags, _ := convertToOrderedACKTags(a.ko.Spec.Tags)
