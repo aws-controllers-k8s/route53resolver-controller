@@ -17,16 +17,15 @@ package resolver_rule
 
 import (
 	"bytes"
-	"reflect"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Hack to avoid import errors during build...
 var (
 	_ = &bytes.Buffer{}
-	_ = &reflect.Method{}
 	_ = &acktags.Tags{}
 )
 
@@ -46,7 +45,7 @@ func newResourceDelta(
 	if len(a.ko.Spec.Associations) != len(b.ko.Spec.Associations) {
 		delta.Add("Spec.Associations", a.ko.Spec.Associations, b.ko.Spec.Associations)
 	} else if len(a.ko.Spec.Associations) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.Associations, b.ko.Spec.Associations) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Associations, b.ko.Spec.Associations) {
 			delta.Add("Spec.Associations", a.ko.Spec.Associations, b.ko.Spec.Associations)
 		}
 	}
@@ -86,7 +85,7 @@ func newResourceDelta(
 	if len(a.ko.Spec.TargetIPs) != len(b.ko.Spec.TargetIPs) {
 		delta.Add("Spec.TargetIPs", a.ko.Spec.TargetIPs, b.ko.Spec.TargetIPs)
 	} else if len(a.ko.Spec.TargetIPs) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.TargetIPs, b.ko.Spec.TargetIPs) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.TargetIPs, b.ko.Spec.TargetIPs) {
 			delta.Add("Spec.TargetIPs", a.ko.Spec.TargetIPs, b.ko.Spec.TargetIPs)
 		}
 	}
