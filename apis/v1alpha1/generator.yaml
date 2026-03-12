@@ -18,7 +18,6 @@ ignore:
     - CreateResolverRuleInput.CreatorRequestId
     - TargetAddress.ServerNameIndication
     - TargetAddress.Protocol
-model_name: route53resolver
 prefix_config: {}
 operations:
   CreateResolverEndpoint:
@@ -35,7 +34,6 @@ resources:
       Id:
         is_primary_key: true
         print:
-          path: Status.Id
           name: ID
       SecurityGroupIds:
         references:
@@ -82,7 +80,6 @@ resources:
       Id:
         is_primary_key: true
         print:
-          path: Status.Id
           name: ID
       Associations:
         custom_field:
