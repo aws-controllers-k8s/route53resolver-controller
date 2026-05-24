@@ -83,6 +83,7 @@ rules:
   - route53resolver.services.k8s.aws
   resources:
   - resolverendpoints
+  - resolverruleassociations
   - resolverrules
   verbs:
   - create
@@ -96,6 +97,7 @@ rules:
   - route53resolver.services.k8s.aws
   resources:
   - resolverendpoints/status
+  - resolverruleassociations/status
   - resolverrules/status
   verbs:
   - get

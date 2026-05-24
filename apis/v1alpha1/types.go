@@ -248,7 +248,7 @@ type ResolverQueryLogConfigAssociation struct {
 // request, provides information about an association between a Resolver rule
 // and a VPC. The association determines which DNS queries that originate in
 // the VPC are forwarded to your network.
-type ResolverRuleAssociation struct {
+type ResolverRuleAssociation_SDK struct {
 	ID             *string `json:"id,omitempty"`
 	Name           *string `json:"name,omitempty"`
 	ResolverRuleID *string `json:"resolverRuleID,omitempty"`
