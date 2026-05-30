@@ -11,6 +11,7 @@ rules:
   resources:
   - resolverendpoints
   - resolverrules
+  - resolverruleassociations
   verbs:
   - get
   - list

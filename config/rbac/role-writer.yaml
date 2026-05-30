@@ -11,6 +11,7 @@ rules:
   resources:
   - resolverendpoints
   - resolverrules
+  - resolverruleassociations
   verbs:
   - create
   - delete
@@ -24,6 +25,7 @@ rules:
   resources:
   - resolverendpoints
   - resolverrules
+  - resolverruleassociations
   verbs:
   - get
   - patch
