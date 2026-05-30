@@ -17,7 +17,6 @@
 import boto3
 import logging
 import time
-from typing import Dict
 
 import pytest
 
@@ -30,15 +29,16 @@ from e2e.bootstrap_resources import get_bootstrap_resources
 
 RESOURCE_PLURAL = "resolverruleassociations"
 
-# Time to wait after modifying the CR for the status to change
-MODIFY_WAIT_AFTER_SECONDS = 10
+# Time to wait after deleting a CR before cleaning up the underlying rule.
+# Disassociation can take 30s+ in AWS.
+DELETE_WAIT_SECONDS = 30
 
-# Time to wait for association to become COMPLETE
-ASSOCIATION_WAIT_SECONDS = 30
+# Maximum time to wait for association to become COMPLETE
+ASSOCIATION_TIMEOUT_SECONDS = 90
 
 
-def create_forward_rule(route53resolver_client) -> str:
-    """Create a FORWARD resolver rule via AWS API for testing associations."""
+def create_system_rule(route53resolver_client) -> str:
+    """Create a SYSTEM resolver rule via AWS API for testing associations."""
     rule_name = random_suffix_name("assoc-test-rule", 32)
     response = route53resolver_client.create_resolver_rule(
         CreatorRequestId=rule_name,
@@ -48,6 +48,17 @@ def create_forward_rule(route53resolver_client) -> str:
     )
     rule_id = response["ResolverRule"]["Id"]
     return rule_id
+
+
+def wait_for_association_complete(ref, timeout=ASSOCIATION_TIMEOUT_SECONDS):
+    """Poll the CR until status.status == COMPLETE or timeout."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        cr = k8s.get_resource(ref)
+        if cr and cr.get('status', {}).get('status') == 'COMPLETE':
+            return cr
+        time.sleep(10)
+    pytest.fail(f"Association {ref.name} did not reach COMPLETE within {timeout}s")
 
 
 def delete_rule(route53resolver_client, rule_id: str):
@@ -61,7 +72,7 @@ def delete_rule(route53resolver_client, rule_id: str):
 @pytest.fixture
 def resolver_rule_association(route53resolver_client):
     """Create a single ResolverRuleAssociation CR and yield it for testing."""
-    rule_id = create_forward_rule(route53resolver_client)
+    rule_id = create_system_rule(route53resolver_client)
     vpc_id = get_bootstrap_resources().ResolverEndpointVPC.vpc_id
 
     association_name = random_suffix_name("rule-assoc", 32)
@@ -91,19 +102,19 @@ def resolver_rule_association(route53resolver_client):
 
     # Cleanup
     try:
-        _, deleted = k8s.delete_custom_resource(ref, 3, 10)
-        assert deleted
-    except:
+        if k8s.get_resource_exists(ref):
+            k8s.delete_custom_resource(ref, 3, 10)
+    except Exception:
         pass
 
-    time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+    time.sleep(DELETE_WAIT_SECONDS)
     delete_rule(route53resolver_client, rule_id)
 
 
 @pytest.fixture
 def two_vpc_associations(route53resolver_client):
     """Create two ResolverRuleAssociation CRs for the same rule but different VPCs."""
-    rule_id = create_forward_rule(route53resolver_client)
+    rule_id = create_system_rule(route53resolver_client)
 
     # Use the bootstrap VPC's subnets to derive two VPC IDs
     # The bootstrap creates one VPC; for the second we create a temporary one
@@ -145,17 +156,18 @@ def two_vpc_associations(route53resolver_client):
     # Cleanup
     for (ref, _) in refs:
         try:
-            _, deleted = k8s.delete_custom_resource(ref, 3, 10)
-        except:
+            if k8s.get_resource_exists(ref):
+                k8s.delete_custom_resource(ref, 3, 10)
+        except Exception:
             pass
 
-    time.sleep(MODIFY_WAIT_AFTER_SECONDS)
+    time.sleep(DELETE_WAIT_SECONDS)
     delete_rule(route53resolver_client, rule_id)
 
     # Delete the temporary VPC
     try:
         ec2_client.delete_vpc(VpcId=vpc_id_2)
-    except:
+    except Exception:
         pass
 
 
@@ -171,8 +183,7 @@ class TestResolverRuleAssociation:
         assert association_id is not None
 
         # Wait for association to become COMPLETE
-        time.sleep(ASSOCIATION_WAIT_SECONDS)
-        cr = k8s.get_resource(ref)
+        cr = wait_for_association_complete(ref)
 
         # Verify Synced condition
         assert condition.assert_synced(ref)
@@ -191,7 +202,7 @@ class TestResolverRuleAssociation:
         assert deleted
 
         # Wait for AWS to process deletion
-        time.sleep(ASSOCIATION_WAIT_SECONDS)
+        time.sleep(DELETE_WAIT_SECONDS)
 
         # Verify the association no longer exists in AWS
         try:
@@ -206,13 +217,12 @@ class TestResolverRuleAssociation:
         """Test that the same resolver rule can be associated with multiple VPCs."""
         (refs, rule_id, vpc_id_2) = two_vpc_associations
 
-        time.sleep(ASSOCIATION_WAIT_SECONDS)
-
-        # Verify both associations exist and are COMPLETE
+        # Verify both associations reach COMPLETE and are Synced
         for (ref, _) in refs:
-            cr = k8s.get_resource(ref)
+            cr = wait_for_association_complete(ref)
             association_id = cr["status"]["id"]
             assert association_id is not None
+            assert condition.assert_synced(ref)
 
             aws_res = route53resolver_client.get_resolver_rule_association(
                 ResolverRuleAssociationId=association_id
