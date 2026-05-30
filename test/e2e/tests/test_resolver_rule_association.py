@@ -207,7 +207,7 @@ class TestResolverRuleAssociation:
         assert assoc["Status"] == "COMPLETE"
 
         # Delete the CR
-        _, deleted = k8s.delete_custom_resource(ref, 3, 10)
+        _, deleted = k8s.delete_custom_resource(ref, 12, 10)
         assert deleted
 
         # Verify the association is eventually removed from AWS
@@ -226,7 +226,7 @@ class TestResolverRuleAssociation:
             f"Association {association_id} still exists in AWS after deletion"
         )
 
-    @pytest.mark.slow
+    @pytest.mark.canary
     def test_multiple_vpcs_same_rule(self, route53resolver_client, two_vpc_associations):
         """Test that the same resolver rule can be associated with multiple VPCs."""
         (refs, rule_id) = two_vpc_associations
