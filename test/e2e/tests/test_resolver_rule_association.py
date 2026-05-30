@@ -29,10 +29,6 @@ from e2e.bootstrap_resources import get_bootstrap_resources
 
 RESOURCE_PLURAL = "resolverruleassociations"
 
-# Time to wait after deleting a CR before cleaning up the underlying rule.
-# Disassociation can take 30s+ in AWS.
-DELETE_WAIT_SECONDS = 30
-
 # Maximum time to wait for association to become COMPLETE
 ASSOCIATION_TIMEOUT_SECONDS = 90
 
@@ -61,12 +57,19 @@ def wait_for_association_complete(ref, timeout=ASSOCIATION_TIMEOUT_SECONDS):
     pytest.fail(f"Association {ref.name} did not reach COMPLETE within {timeout}s")
 
 
-def delete_rule(route53resolver_client, rule_id: str):
-    """Delete the resolver rule created for testing."""
-    try:
-        route53resolver_client.delete_resolver_rule(ResolverRuleId=rule_id)
-    except route53resolver_client.exceptions.ResourceNotFoundException:
-        pass
+def delete_rule(route53resolver_client, rule_id: str, timeout: int = 90):
+    """Delete the resolver rule, retrying if still in use (disassociation pending)."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            route53resolver_client.delete_resolver_rule(ResolverRuleId=rule_id)
+            return
+        except route53resolver_client.exceptions.ResourceNotFoundException:
+            return
+        except route53resolver_client.exceptions.ResourceInUseException:
+            logging.debug(f"Rule {rule_id} still in use, retrying...")
+            time.sleep(10)
+    logging.warning(f"Failed to delete rule {rule_id} within {timeout}s — may be leaked")
 
 
 @pytest.fixture
@@ -104,10 +107,9 @@ def resolver_rule_association(route53resolver_client):
     try:
         if k8s.get_resource_exists(ref):
             k8s.delete_custom_resource(ref, 3, 10)
-    except Exception:
-        pass
+    except Exception as e:
+        logging.warning(f"Cleanup failed for {association_name}: {e}")
 
-    time.sleep(DELETE_WAIT_SECONDS)
     delete_rule(route53resolver_client, rule_id)
 
 
@@ -151,42 +153,49 @@ def two_vpc_associations(route53resolver_client):
         assert cr is not None
         refs.append((ref, cr))
 
-    yield (refs, rule_id, vpc_id_2)
+    yield (refs, rule_id)
 
     # Cleanup
     for (ref, _) in refs:
         try:
             if k8s.get_resource_exists(ref):
                 k8s.delete_custom_resource(ref, 3, 10)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.warning(f"Cleanup failed for association: {e}")
 
-    time.sleep(DELETE_WAIT_SECONDS)
     delete_rule(route53resolver_client, rule_id)
 
-    # Delete the temporary VPC
-    try:
-        ec2_client.delete_vpc(VpcId=vpc_id_2)
-    except Exception:
-        pass
+    # Delete the temporary VPC (retry — associations may still be releasing)
+    deadline = time.time() + 90
+    while time.time() < deadline:
+        try:
+            ec2_client.delete_vpc(VpcId=vpc_id_2)
+            break
+        except ec2_client.exceptions.ClientError as e:
+            if 'DependencyViolation' in str(e):
+                logging.debug(f"VPC {vpc_id_2} has dependencies, retrying...")
+                time.sleep(10)
+            else:
+                logging.warning(f"Failed to delete VPC {vpc_id_2}: {e}")
+                break
 
 
 @service_marker
-@pytest.mark.canary
 class TestResolverRuleAssociation:
+    @pytest.mark.canary
     def test_create_delete(self, route53resolver_client, resolver_rule_association):
         """Test basic create and delete of a ResolverRuleAssociation."""
         (ref, cr, rule_id) = resolver_rule_association
 
-        # Verify the association ID was assigned
-        association_id = cr["status"]["id"]
-        assert association_id is not None
-
         # Wait for association to become COMPLETE
         cr = wait_for_association_complete(ref)
 
+        # Verify the association ID was assigned after reconciliation
+        association_id = cr["status"]["id"]
+        assert association_id is not None
+
         # Verify Synced condition
-        assert condition.assert_synced(ref)
+        condition.assert_synced(ref)
 
         # Verify the association exists in AWS
         aws_res = route53resolver_client.get_resolver_rule_association(
@@ -201,28 +210,33 @@ class TestResolverRuleAssociation:
         _, deleted = k8s.delete_custom_resource(ref, 3, 10)
         assert deleted
 
-        # Wait for AWS to process deletion
-        time.sleep(DELETE_WAIT_SECONDS)
+        # Verify the association is eventually removed from AWS
+        deleted_in_aws = False
+        for _ in range(9):  # up to 90s
+            try:
+                route53resolver_client.get_resolver_rule_association(
+                    ResolverRuleAssociationId=association_id
+                )
+                time.sleep(10)
+            except route53resolver_client.exceptions.ResourceNotFoundException:
+                deleted_in_aws = True
+                break
 
-        # Verify the association no longer exists in AWS
-        try:
-            route53resolver_client.get_resolver_rule_association(
-                ResolverRuleAssociationId=association_id
-            )
-            pytest.fail(f"Association {association_id} should have been deleted")
-        except route53resolver_client.exceptions.ResourceNotFoundException:
-            pass
+        assert deleted_in_aws, (
+            f"Association {association_id} still exists in AWS after deletion"
+        )
 
+    @pytest.mark.slow
     def test_multiple_vpcs_same_rule(self, route53resolver_client, two_vpc_associations):
         """Test that the same resolver rule can be associated with multiple VPCs."""
-        (refs, rule_id, vpc_id_2) = two_vpc_associations
+        (refs, rule_id) = two_vpc_associations
 
         # Verify both associations reach COMPLETE and are Synced
         for (ref, _) in refs:
             cr = wait_for_association_complete(ref)
             association_id = cr["status"]["id"]
             assert association_id is not None
-            assert condition.assert_synced(ref)
+            condition.assert_synced(ref)
 
             aws_res = route53resolver_client.get_resolver_rule_association(
                 ResolverRuleAssociationId=association_id
