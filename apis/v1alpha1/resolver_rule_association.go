@@ -43,8 +43,8 @@ type ResolverRuleAssociationSpec struct {
 	ResolverRuleRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"resolverRuleRef,omitempty"`
 	// The ID of the VPC that you want to associate the Resolver rule with.
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
-	// +kubebuilder:validation:Required
-	VPCID *string `json:"vpcID"`
+	VPCID  *string                                  `json:"vpcID,omitempty"`
+	VPCRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"vpcRef,omitempty"`
 }
 
 // ResolverRuleAssociationStatus defines the observed state of ResolverRuleAssociation

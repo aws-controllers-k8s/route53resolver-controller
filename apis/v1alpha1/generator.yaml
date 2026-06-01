@@ -144,6 +144,10 @@ resources:
       VPCId:
         is_immutable: true
         is_required: true
+        references:
+          resource: VPC
+          path: Status.VPCID
+          service_name: ec2
       Name:
         is_immutable: true
     renames:

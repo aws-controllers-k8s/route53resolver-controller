@@ -65,17 +65,18 @@ func (rm *resourceManager) sdkFind(
 	// If any required fields in the input shape are missing, AWS resource is
 	// not created yet. Return NotFound here to indicate to callers that the
 	// resource isn't yet created.
-	if rm.requiredFieldsMissingFromReadManyInput(r) {
+	if rm.requiredFieldsMissingFromReadOneInput(r) {
 		return nil, ackerr.NotFound
 	}
 
-	input, err := rm.newListRequestPayload(r)
+	input, err := rm.newDescribeRequestPayload(r)
 	if err != nil {
 		return nil, err
 	}
-	var resp *svcsdk.ListResolverRuleAssociationsOutput
-	resp, err = rm.sdkapi.ListResolverRuleAssociations(ctx, input)
-	rm.metrics.RecordAPICall("READ_MANY", "ListResolverRuleAssociations", err)
+
+	var resp *svcsdk.GetResolverRuleAssociationOutput
+	resp, err = rm.sdkapi.GetResolverRuleAssociation(ctx, input)
+	rm.metrics.RecordAPICall("READ_ONE", "GetResolverRuleAssociation", err)
 	if err != nil {
 		var awsErr smithy.APIError
 		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "ResourceNotFoundException" {
@@ -88,64 +89,61 @@ func (rm *resourceManager) sdkFind(
 	// the original Kubernetes object we passed to the function
 	ko := r.ko.DeepCopy()
 
-	found := false
-	for _, elem := range resp.ResolverRuleAssociations {
-		if elem.Id != nil {
-			ko.Status.ID = elem.Id
-		} else {
-			ko.Status.ID = nil
-		}
-		if elem.Name != nil {
-			ko.Spec.Name = elem.Name
-		} else {
-			ko.Spec.Name = nil
-		}
-		if elem.ResolverRuleId != nil {
-			ko.Spec.ResolverRuleID = elem.ResolverRuleId
-		} else {
-			ko.Spec.ResolverRuleID = nil
-		}
-		if elem.Status != "" {
-			ko.Status.Status = aws.String(string(elem.Status))
-		} else {
-			ko.Status.Status = nil
-		}
-		if elem.StatusMessage != nil {
-			ko.Status.StatusMessage = elem.StatusMessage
-		} else {
-			ko.Status.StatusMessage = nil
-		}
-		if elem.VPCId != nil {
-			ko.Spec.VPCID = elem.VPCId
-		} else {
-			ko.Spec.VPCID = nil
-		}
-		found = true
-		break
+	if resp.ResolverRuleAssociation.Id != nil {
+		ko.Status.ID = resp.ResolverRuleAssociation.Id
+	} else {
+		ko.Status.ID = nil
 	}
-	if !found {
-		return nil, ackerr.NotFound
+	if resp.ResolverRuleAssociation.Name != nil {
+		ko.Spec.Name = resp.ResolverRuleAssociation.Name
+	} else {
+		ko.Spec.Name = nil
+	}
+	if resp.ResolverRuleAssociation.ResolverRuleId != nil {
+		ko.Spec.ResolverRuleID = resp.ResolverRuleAssociation.ResolverRuleId
+	} else {
+		ko.Spec.ResolverRuleID = nil
+	}
+	if resp.ResolverRuleAssociation.Status != "" {
+		ko.Status.Status = aws.String(string(resp.ResolverRuleAssociation.Status))
+	} else {
+		ko.Status.Status = nil
+	}
+	if resp.ResolverRuleAssociation.StatusMessage != nil {
+		ko.Status.StatusMessage = resp.ResolverRuleAssociation.StatusMessage
+	} else {
+		ko.Status.StatusMessage = nil
+	}
+	if resp.ResolverRuleAssociation.VPCId != nil {
+		ko.Spec.VPCID = resp.ResolverRuleAssociation.VPCId
+	} else {
+		ko.Spec.VPCID = nil
 	}
 
 	rm.setStatusDefaults(ko)
 	return &resource{ko}, nil
 }
 
-// requiredFieldsMissingFromReadManyInput returns true if there are any fields
-// for the ReadMany Input shape that are required but not present in the
+// requiredFieldsMissingFromReadOneInput returns true if there are any fields
+// for the ReadOne Input shape that are required but not present in the
 // resource's Spec or Status
-func (rm *resourceManager) requiredFieldsMissingFromReadManyInput(
+func (rm *resourceManager) requiredFieldsMissingFromReadOneInput(
 	r *resource,
 ) bool {
-	return false
+	return r.ko.Status.ID == nil
+
 }
 
-// newListRequestPayload returns SDK-specific struct for the HTTP request
-// payload of the List API call for the resource
-func (rm *resourceManager) newListRequestPayload(
+// newDescribeRequestPayload returns SDK-specific struct for the HTTP request
+// payload of the Describe API call for the resource
+func (rm *resourceManager) newDescribeRequestPayload(
 	r *resource,
-) (*svcsdk.ListResolverRuleAssociationsInput, error) {
-	res := &svcsdk.ListResolverRuleAssociationsInput{}
+) (*svcsdk.GetResolverRuleAssociationInput, error) {
+	res := &svcsdk.GetResolverRuleAssociationInput{}
+
+	if r.ko.Status.ID != nil {
+		res.ResolverRuleAssociationId = r.ko.Status.ID
+	}
 
 	return res, nil
 }
