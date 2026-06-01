@@ -14,7 +14,6 @@
 """Integration tests for the Route53 ResolverRuleAssociation resource
 """
 
-import boto3
 import logging
 import time
 
@@ -30,7 +29,7 @@ from e2e.bootstrap_resources import get_bootstrap_resources
 RESOURCE_PLURAL = "resolverruleassociations"
 
 # Maximum time to wait for association to become COMPLETE
-ASSOCIATION_TIMEOUT_SECONDS = 90
+ASSOCIATION_TIMEOUT_SECONDS = 180
 
 
 def create_system_rule(route53resolver_client) -> str:
@@ -118,16 +117,8 @@ def two_vpc_associations(route53resolver_client):
     """Create two ResolverRuleAssociation CRs for the same rule but different VPCs."""
     rule_id = create_system_rule(route53resolver_client)
 
-    # Use the bootstrap VPC's subnets to derive two VPC IDs
-    # The bootstrap creates one VPC; for the second we create a temporary one
     vpc_id_1 = get_bootstrap_resources().ResolverEndpointVPC.vpc_id
-
-    ec2_client = boto3.client("ec2")
-    vpc_response = ec2_client.create_vpc(CidrBlock="10.99.0.0/16")
-    vpc_id_2 = vpc_response["Vpc"]["VpcId"]
-
-    # Wait for VPC to be available
-    ec2_client.get_waiter("vpc_available").wait(VpcIds=[vpc_id_2])
+    vpc_id_2 = get_bootstrap_resources().AssociationTestVPC.vpc_id
 
     association_name_1 = random_suffix_name("rule-assoc-1", 32)
     association_name_2 = random_suffix_name("rule-assoc-2", 32)
@@ -164,20 +155,6 @@ def two_vpc_associations(route53resolver_client):
             logging.warning(f"Cleanup failed for association: {e}")
 
     delete_rule(route53resolver_client, rule_id)
-
-    # Delete the temporary VPC (retry — associations may still be releasing)
-    deadline = time.time() + 90
-    while time.time() < deadline:
-        try:
-            ec2_client.delete_vpc(VpcId=vpc_id_2)
-            break
-        except ec2_client.exceptions.ClientError as e:
-            if 'DependencyViolation' in str(e):
-                logging.debug(f"VPC {vpc_id_2} has dependencies, retrying...")
-                time.sleep(10)
-            else:
-                logging.warning(f"Failed to delete VPC {vpc_id_2}: {e}")
-                break
 
 
 @service_marker

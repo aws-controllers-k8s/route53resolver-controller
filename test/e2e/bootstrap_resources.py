@@ -23,6 +23,7 @@ from e2e import bootstrap_directory
 @dataclass
 class BootstrapResources(Resources):
     ResolverEndpointVPC: VPC
+    AssociationTestVPC: VPC
 
 
 _bootstrap_resources = None
