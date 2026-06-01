@@ -34,7 +34,7 @@ operations:
     output_wrapper_field_path: ResolverRuleAssociation
   GetResolverRuleAssociation:
     resource_name: ResolverRuleAssociation
-    operation_type: Read
+    operation_type: Read_One
     output_wrapper_field_path: ResolverRuleAssociation
 resources:
   ResolverEndpoint:
@@ -119,6 +119,11 @@ resources:
     update_operation:
       custom_method_name: customUpdateResolverRule
   ResolverRuleAssociation:
+    synced:
+      when:
+        - path: Status.Status
+          in:
+            - COMPLETE
     tags:
       ignore: true
     exceptions:
