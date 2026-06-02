@@ -1,0 +1,8 @@
+apiVersion: route53resolver.services.k8s.aws/v1alpha1
+kind: ResolverRuleAssociation
+metadata:
+  name: $RESOLVER_RULE_ASSOCIATION_NAME
+spec:
+  name: $RESOLVER_RULE_ASSOCIATION_NAME
+  resolverRuleID: $RESOLVER_RULE_ID
+  vpcID: $VPC_ID

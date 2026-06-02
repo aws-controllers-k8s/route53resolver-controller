@@ -235,14 +235,14 @@ const (
 	ResolverQueryLogConfigStatus_FAILED   ResolverQueryLogConfigStatus = "FAILED"
 )
 
-type ResolverRuleAssociationStatus string
+type ResolverRuleAssociationStatus_SDK string
 
 const (
-	ResolverRuleAssociationStatus_COMPLETE   ResolverRuleAssociationStatus = "COMPLETE"
-	ResolverRuleAssociationStatus_CREATING   ResolverRuleAssociationStatus = "CREATING"
-	ResolverRuleAssociationStatus_DELETING   ResolverRuleAssociationStatus = "DELETING"
-	ResolverRuleAssociationStatus_FAILED     ResolverRuleAssociationStatus = "FAILED"
-	ResolverRuleAssociationStatus_OVERRIDDEN ResolverRuleAssociationStatus = "OVERRIDDEN"
+	ResolverRuleAssociationStatus_SDK_COMPLETE   ResolverRuleAssociationStatus_SDK = "COMPLETE"
+	ResolverRuleAssociationStatus_SDK_CREATING   ResolverRuleAssociationStatus_SDK = "CREATING"
+	ResolverRuleAssociationStatus_SDK_DELETING   ResolverRuleAssociationStatus_SDK = "DELETING"
+	ResolverRuleAssociationStatus_SDK_FAILED     ResolverRuleAssociationStatus_SDK = "FAILED"
+	ResolverRuleAssociationStatus_SDK_OVERRIDDEN ResolverRuleAssociationStatus_SDK = "OVERRIDDEN"
 )
 
 type ResolverRuleStatus_SDK string

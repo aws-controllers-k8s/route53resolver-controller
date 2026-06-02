@@ -34,7 +34,7 @@ func getCreatorRequestId(rule *svcapitypes.ResolverRule) *string {
 func (rm *resourceManager) getAttachedVPC(
 	ctx context.Context,
 	latest *resource,
-) (associationList []*svcapitypes.ResolverRuleAssociation, err error) {
+) (associationList []*svcapitypes.ResolverRuleAssociation_SDK, err error) {
 	rlog := ackrtlog.FromContext(ctx)
 	exit := rlog.Trace("rm.getAttachedVPC")
 	defer func(err error) {
@@ -54,7 +54,7 @@ func (rm *resourceManager) getAttachedVPC(
 	rm.metrics.RecordAPICall("READ_ONE", "ListResolverRuleAssociations", err)
 	for _, association := range resolverRuleList.ResolverRuleAssociations {
 		if association.Status != svcsdktypes.ResolverRuleAssociationStatusDeleting {
-			var svcassociation svcapitypes.ResolverRuleAssociation
+			var svcassociation svcapitypes.ResolverRuleAssociation_SDK
 			svcassociation.VPCID = association.VPCId
 			associationList = append(associationList, &svcassociation)
 		}

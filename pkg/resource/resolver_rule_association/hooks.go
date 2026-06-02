@@ -1,0 +1,1 @@
+package resolver_rule_association

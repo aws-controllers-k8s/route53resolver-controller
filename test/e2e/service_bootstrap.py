@@ -23,7 +23,8 @@ def service_bootstrap() -> Resources:
     logging.getLogger().setLevel(logging.INFO)
 
     resources = BootstrapResources(
-        ResolverEndpointVPC=VPC("resolver-endpoint-vpc", num_public_subnet=2, num_private_subnet=2)
+        ResolverEndpointVPC=VPC("resolver-endpoint-vpc", num_public_subnet=2, num_private_subnet=2),
+        AssociationTestVPC=VPC("association-test-vpc", num_public_subnet=0, num_private_subnet=0),
     )
 
     try:

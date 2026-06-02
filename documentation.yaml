@@ -1,0 +1,33 @@
+resources:
+  ResolverRule:
+    note: |
+      The inline `spec.associations` field manages VPC associations as part of
+      the ResolverRule resource itself. This requires the cluster managing the
+      ResolverRule CR to also be authoritative over its VPC associations and is
+      only suitable when a single cluster owns the rule.
+
+      This field is **not** suitable for shared ResolverRules (for example,
+      rules shared across accounts via AWS Resource Access Manager (RAM) or
+      managed centrally by a platform team). In a hub-and-spoke setup where
+      multiple spoke clusters adopt the same shared rule, each cluster would
+      race to overwrite the `spec.associations` array with its own VPC,
+      causing reconcile loops to fight one another.
+
+      For shared-rule or fleet-scale scenarios, use the standalone
+      `ResolverRuleAssociation` CRD instead. Each cluster then manages only its
+      own VPC association without taking ownership of the underlying
+      ResolverRule.
+  ResolverRuleAssociation:
+    note: |
+      `ResolverRuleAssociation` is a standalone resource that associates a
+      single VPC with an existing ResolverRule via the AWS
+      `AssociateResolverRule` / `DisassociateResolverRule` APIs.
+
+      All spec fields (`resolverRuleID`, `vpcID`, `name`) are **immutable**
+      after creation, matching the underlying AWS API which has no update
+      operation. To change any field, delete and recreate the resource.
+
+      Use this CRD instead of the inline `ResolverRule.spec.associations` field
+      when the ResolverRule is shared (for example via AWS RAM) or is owned by
+      a different cluster or team, so that each consumer manages only its own
+      association without contending over the rule's spec.

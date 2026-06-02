@@ -24,6 +24,18 @@ operations:
     output_wrapper_field_path: ResolverEndpoint
   CreateResolverRule:
     output_wrapper_field_path: ResolverRule
+  AssociateResolverRule:
+    resource_name: ResolverRuleAssociation
+    operation_type: Create
+    output_wrapper_field_path: ResolverRuleAssociation
+  DisassociateResolverRule:
+    resource_name: ResolverRuleAssociation
+    operation_type: Delete
+    output_wrapper_field_path: ResolverRuleAssociation
+  GetResolverRuleAssociation:
+    resource_name: ResolverRuleAssociation
+    operation_type: Read_One
+    output_wrapper_field_path: ResolverRuleAssociation
 resources:
   ResolverEndpoint:
     exceptions:
@@ -106,4 +118,40 @@ resources:
         template_path: hooks/resolver_rule/sdk_delete_pre_build_request.go.tpl
     update_operation:
       custom_method_name: customUpdateResolverRule
-
+  ResolverRuleAssociation:
+    synced:
+      when:
+        - path: Status.Status
+          in:
+            - COMPLETE
+    tags:
+      ignore: true
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundException
+    fields:
+      Id:
+        is_primary_key: true
+        print:
+          name: ID
+      ResolverRuleId:
+        is_immutable: true
+        is_required: true
+        references:
+          resource: ResolverRule
+          path: Status.ID
+      VPCId:
+        is_immutable: true
+        is_required: true
+        references:
+          resource: VPC
+          path: Status.VPCID
+          service_name: ec2
+      Name:
+        is_immutable: true
+    renames:
+      operations:
+        GetResolverRuleAssociation:
+          input_fields:
+            ResolverRuleAssociationId: Id
