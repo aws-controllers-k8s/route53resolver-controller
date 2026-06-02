@@ -35,9 +35,13 @@ ASSOCIATION_TIMEOUT_SECONDS = 180
 def create_system_rule(route53resolver_client) -> str:
     """Create a SYSTEM resolver rule via AWS API for testing associations."""
     rule_name = random_suffix_name("assoc-test-rule", 32)
+    # Use a unique domain per rule to avoid conflicts when tests run in parallel.
+    # AWS enforces one rule per domain per VPC, so a shared domain causes
+    # collisions between concurrent test fixtures associating the same VPC.
+    domain_name = f"{rule_name}.example.com"
     response = route53resolver_client.create_resolver_rule(
         CreatorRequestId=rule_name,
-        DomainName="test-assoc.example.com",
+        DomainName=domain_name,
         Name=rule_name,
         RuleType="SYSTEM",
     )
