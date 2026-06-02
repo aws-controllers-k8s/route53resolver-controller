@@ -121,10 +121,6 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
-	if ko.Status.Status != nil && *ko.Status.Status != "COMPLETE" {
-		return &resource{ko}, requeueWhileCreating
-	}
-
 	return &resource{ko}, nil
 }
 
@@ -212,10 +208,6 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
-	if ko.Status.Status != nil && *ko.Status.Status != "COMPLETE" {
-		return &resource{ko}, requeueWhileCreating
-	}
-
 	return &resource{ko}, nil
 }
 
