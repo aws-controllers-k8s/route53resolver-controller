@@ -124,11 +124,6 @@ resources:
         - path: Status.Status
           in:
             - COMPLETE
-    hooks:
-      sdk_create_post_set_output:
-        template_path: hooks/resolver_rule_association/sdk_create_post_set_output.go.tpl
-      sdk_read_one_post_set_output:
-        template_path: hooks/resolver_rule_association/sdk_read_one_post_set_output.go.tpl
     tags:
       ignore: true
     exceptions:
