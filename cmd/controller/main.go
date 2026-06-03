@@ -42,6 +42,7 @@ import (
 
 	_ "github.com/aws-controllers-k8s/route53resolver-controller/pkg/resource/resolver_endpoint"
 	_ "github.com/aws-controllers-k8s/route53resolver-controller/pkg/resource/resolver_query_log_config"
+	_ "github.com/aws-controllers-k8s/route53resolver-controller/pkg/resource/resolver_query_log_config_association"
 	_ "github.com/aws-controllers-k8s/route53resolver-controller/pkg/resource/resolver_rule"
 	_ "github.com/aws-controllers-k8s/route53resolver-controller/pkg/resource/resolver_rule_association"
 

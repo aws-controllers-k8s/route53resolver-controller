@@ -85,6 +85,7 @@ rules:
   - route53resolver.services.k8s.aws
   resources:
   - resolverendpoints
+  - resolverquerylogconfigassociations
   - resolverquerylogconfigs
   - resolverruleassociations
   - resolverrules
@@ -100,6 +101,7 @@ rules:
   - route53resolver.services.k8s.aws
   resources:
   - resolverendpoints/status
+  - resolverquerylogconfigassociations/status
   - resolverquerylogconfigs/status
   - resolverruleassociations/status
   - resolverrules/status

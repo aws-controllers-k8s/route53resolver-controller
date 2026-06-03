@@ -1,0 +1,7 @@
+apiVersion: route53resolver.services.k8s.aws/v1alpha1
+kind: ResolverQueryLogConfigAssociation
+metadata:
+  name: $RESOLVER_QUERY_LOG_CONFIG_ASSOCIATION_NAME
+spec:
+  resolverQueryLogConfigID: $RESOLVER_QUERY_LOG_CONFIG_ID
+  resourceID: $VPC_ID
