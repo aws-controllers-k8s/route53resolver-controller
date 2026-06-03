@@ -1,0 +1,10 @@
+apiVersion: route53resolver.services.k8s.aws/v1alpha1
+kind: ResolverQueryLogConfig
+metadata:
+  name: $RESOLVER_QUERY_LOG_CONFIG_NAME
+spec:
+  name: $RESOLVER_QUERY_LOG_CONFIG_NAME
+  destinationARN: $DESTINATION_ARN
+  tags:
+    - key: "managed-by"
+      value: "ack-e2e-test"
