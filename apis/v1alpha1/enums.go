@@ -216,14 +216,14 @@ const (
 	ResolverQueryLogConfigAssociationError_NONE                   ResolverQueryLogConfigAssociationError = "NONE"
 )
 
-type ResolverQueryLogConfigAssociationStatus string
+type ResolverQueryLogConfigAssociationStatus_SDK string
 
 const (
-	ResolverQueryLogConfigAssociationStatus_ACTION_NEEDED ResolverQueryLogConfigAssociationStatus = "ACTION_NEEDED"
-	ResolverQueryLogConfigAssociationStatus_ACTIVE        ResolverQueryLogConfigAssociationStatus = "ACTIVE"
-	ResolverQueryLogConfigAssociationStatus_CREATING      ResolverQueryLogConfigAssociationStatus = "CREATING"
-	ResolverQueryLogConfigAssociationStatus_DELETING      ResolverQueryLogConfigAssociationStatus = "DELETING"
-	ResolverQueryLogConfigAssociationStatus_FAILED        ResolverQueryLogConfigAssociationStatus = "FAILED"
+	ResolverQueryLogConfigAssociationStatus_SDK_ACTION_NEEDED ResolverQueryLogConfigAssociationStatus_SDK = "ACTION_NEEDED"
+	ResolverQueryLogConfigAssociationStatus_SDK_ACTIVE        ResolverQueryLogConfigAssociationStatus_SDK = "ACTIVE"
+	ResolverQueryLogConfigAssociationStatus_SDK_CREATING      ResolverQueryLogConfigAssociationStatus_SDK = "CREATING"
+	ResolverQueryLogConfigAssociationStatus_SDK_DELETING      ResolverQueryLogConfigAssociationStatus_SDK = "DELETING"
+	ResolverQueryLogConfigAssociationStatus_SDK_FAILED        ResolverQueryLogConfigAssociationStatus_SDK = "FAILED"
 )
 
 type ResolverQueryLogConfigStatus_SDK string

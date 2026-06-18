@@ -18,6 +18,7 @@ rules:
   resources:
   - resolverendpoints
   - resolverquerylogconfigs
+  - resolverquerylogconfigassociations
   - resolverrules
   - resolverruleassociations
   verbs:

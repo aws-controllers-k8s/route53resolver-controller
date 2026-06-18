@@ -26,6 +26,14 @@ operations:
     output_wrapper_field_path: ResolverEndpoint
   CreateResolverRule:
     output_wrapper_field_path: ResolverRule
+  AssociateResolverQueryLogConfig:
+    operation_type: Create
+    resource_name: ResolverQueryLogConfigAssociation
+  GetResolverQueryLogConfigAssociation:
+    resource_name: ResolverQueryLogConfigAssociation
+  DisassociateResolverQueryLogConfig:
+    operation_type: Delete
+    resource_name: ResolverQueryLogConfigAssociation
   AssociateResolverRule:
     resource_name: ResolverRuleAssociation
     operation_type: Create
@@ -193,3 +201,39 @@ resources:
     hooks:
       sdk_read_one_post_set_output:
         template_path: hooks/resolver_query_log_config/sdk_read_one_post_set_output.go.tpl
+  ResolverQueryLogConfigAssociation:
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundException
+      terminal_codes:
+        - InvalidParameterException
+        - InvalidRequestException
+    fields:
+      Id:
+        is_primary_key: true
+        print:
+          name: ID
+      ResolverQueryLogConfigId:
+        is_immutable: true
+        references:
+          resource: ResolverQueryLogConfig
+          path: Status.ID
+      ResourceId:
+        is_immutable: true
+        references:
+          resource: VPC
+          path: Status.VPCID
+          service_name: ec2
+    renames:
+      operations:
+        GetResolverQueryLogConfigAssociation:
+          input_fields:
+            ResolverQueryLogConfigAssociationId: Id
+    synced:
+      when:
+        - path: Status.Status
+          in:
+            - ACTIVE
+    tags:
+      ignore: true
