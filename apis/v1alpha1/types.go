@@ -215,20 +215,6 @@ type ResolverEndpoint_SDK struct {
 	StatusMessage        *string   `json:"statusMessage,omitempty"`
 }
 
-// In the response to a CreateResolverQueryLogConfig (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_CreateResolverQueryLogConfig.html),
-// DeleteResolverQueryLogConfig (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_DeleteResolverQueryLogConfig.html),
-// GetResolverQueryLogConfig (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_GetResolverQueryLogConfig.html),
-// or ListResolverQueryLogConfigs (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_ListResolverQueryLogConfigs.html)
-// request, a complex type that contains settings for one query logging configuration.
-type ResolverQueryLogConfig struct {
-	ARN              *string `json:"arn,omitempty"`
-	CreationTime     *string `json:"creationTime,omitempty"`
-	CreatorRequestID *string `json:"creatorRequestID,omitempty"`
-	ID               *string `json:"id,omitempty"`
-	OwnerID          *string `json:"ownerID,omitempty"`
-	ShareStatus      *string `json:"shareStatus,omitempty"`
-}
-
 // In the response to an AssociateResolverQueryLogConfig (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_AssociateResolverQueryLogConfig.html),
 // DisassociateResolverQueryLogConfig (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_DisassociateResolverQueryLogConfig.html),
 // GetResolverQueryLogConfigAssociation (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_GetResolverQueryLogConfigAssociation.html),
@@ -240,6 +226,23 @@ type ResolverQueryLogConfigAssociation struct {
 	ID                       *string `json:"id,omitempty"`
 	ResolverQueryLogConfigID *string `json:"resolverQueryLogConfigID,omitempty"`
 	ResourceID               *string `json:"resourceID,omitempty"`
+}
+
+// In the response to a CreateResolverQueryLogConfig (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_CreateResolverQueryLogConfig.html),
+// DeleteResolverQueryLogConfig (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_DeleteResolverQueryLogConfig.html),
+// GetResolverQueryLogConfig (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_GetResolverQueryLogConfig.html),
+// or ListResolverQueryLogConfigs (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_ListResolverQueryLogConfigs.html)
+// request, a complex type that contains settings for one query logging configuration.
+type ResolverQueryLogConfig_SDK struct {
+	ARN              *string `json:"arn,omitempty"`
+	AssociationCount *int64  `json:"associationCount,omitempty"`
+	CreationTime     *string `json:"creationTime,omitempty"`
+	DestinationARN   *string `json:"destinationARN,omitempty"`
+	ID               *string `json:"id,omitempty"`
+	Name             *string `json:"name,omitempty"`
+	OwnerID          *string `json:"ownerID,omitempty"`
+	ShareStatus      *string `json:"shareStatus,omitempty"`
+	Status           *string `json:"status,omitempty"`
 }
 
 // In the response to an AssociateResolverRule (https://docs.aws.amazon.com/Route53/latest/APIReference/API_route53resolver_AssociateResolverRule.html),

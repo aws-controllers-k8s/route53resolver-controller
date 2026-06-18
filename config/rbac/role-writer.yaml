@@ -10,6 +10,7 @@ rules:
   - route53resolver.services.k8s.aws
   resources:
   - resolverendpoints
+  - resolverquerylogconfigs
   - resolverrules
   - resolverruleassociations
   verbs:
@@ -24,6 +25,7 @@ rules:
   - route53resolver.services.k8s.aws
   resources:
   - resolverendpoints
+  - resolverquerylogconfigs
   - resolverrules
   - resolverruleassociations
   verbs:

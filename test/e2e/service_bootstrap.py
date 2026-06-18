@@ -15,6 +15,7 @@
 import logging
 
 from acktest.bootstrapping import Resources, BootstrapFailureException
+from acktest.bootstrapping.s3 import Bucket
 from acktest.bootstrapping.vpc import VPC
 from e2e import bootstrap_directory
 from e2e.bootstrap_resources import BootstrapResources
@@ -25,6 +26,7 @@ def service_bootstrap() -> Resources:
     resources = BootstrapResources(
         ResolverEndpointVPC=VPC("resolver-endpoint-vpc", num_public_subnet=2, num_private_subnet=2),
         AssociationTestVPC=VPC("association-test-vpc", num_public_subnet=0, num_private_subnet=0),
+        QueryLogBucket=Bucket("ack-qlc-test"),
     )
 
     try:

@@ -5,7 +5,7 @@ ignore:
       - FirewallRule
       - FirewallRuleGroup
       #- ResolverEndpoint
-      - ResolverQueryLogConfig
+      #- ResolverQueryLogConfig
       #- ResolverRule
   field_paths:
     - CreateResolverEndpointInput.CreatorRequestId
@@ -16,6 +16,8 @@ ignore:
     - CreateResolverEndpointOutput.ResolverEndpoint.PreferredInstanceType
     - CreateResolverEndpointOutput.ResolverEndpoint.Protocols
     - CreateResolverRuleInput.CreatorRequestId
+    - CreateResolverQueryLogConfigOutput.ResolverQueryLogConfig.CreatorRequestId
+    - GetResolverQueryLogConfigOutput.ResolverQueryLogConfig.CreatorRequestId
     - TargetAddress.ServerNameIndication
     - TargetAddress.Protocol
 prefix_config: {}
@@ -155,3 +157,39 @@ resources:
         GetResolverRuleAssociation:
           input_fields:
             ResolverRuleAssociationId: Id
+  ResolverQueryLogConfig:
+    ignore_idempotency_token: true
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundException
+      terminal_codes:
+        - InvalidParameterException
+        - InvalidRequestException
+    fields:
+      Id:
+        is_primary_key: true
+        print:
+          name: ID
+      Name:
+        is_immutable: true
+      DestinationArn:
+        is_immutable: true
+    renames:
+      operations:
+        GetResolverQueryLogConfig:
+          input_fields:
+            ResolverQueryLogConfigId: Id
+        DeleteResolverQueryLogConfig:
+          input_fields:
+            ResolverQueryLogConfigId: Id
+    synced:
+      when:
+        - path: Status.Status
+          in:
+            - CREATED
+    update_operation:
+      custom_method_name: customUpdateResolverQueryLogConfig
+    hooks:
+      sdk_read_one_post_set_output:
+        template_path: hooks/resolver_query_log_config/sdk_read_one_post_set_output.go.tpl
