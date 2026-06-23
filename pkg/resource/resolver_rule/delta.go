@@ -70,6 +70,9 @@ func newResourceDelta(
 			delta.Add("Spec.ResolverEndpointID", a.ko.Spec.ResolverEndpointID, b.ko.Spec.ResolverEndpointID)
 		}
 	}
+	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.ResolverEndpointRef, b.ko.Spec.ResolverEndpointRef) {
+		delta.Add("Spec.ResolverEndpointRef", a.ko.Spec.ResolverEndpointRef, b.ko.Spec.ResolverEndpointRef)
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.RuleType, b.ko.Spec.RuleType) {
 		delta.Add("Spec.RuleType", a.ko.Spec.RuleType, b.ko.Spec.RuleType)
 	} else if a.ko.Spec.RuleType != nil && b.ko.Spec.RuleType != nil {

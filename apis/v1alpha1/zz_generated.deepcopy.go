@@ -1641,6 +1641,11 @@ func (in *ResolverRuleSpec) DeepCopyInto(out *ResolverRuleSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ResolverEndpointRef != nil {
+		in, out := &in.ResolverEndpointRef, &out.ResolverEndpointRef
+		*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.RuleType != nil {
 		in, out := &in.RuleType, &out.RuleType
 		*out = new(string)

@@ -44,7 +44,8 @@ type ResolverRuleSpec struct {
 	Name *string `json:"name,omitempty"`
 	// The ID of the outbound Resolver endpoint that you want to use to route DNS
 	// queries to the IP addresses that you specify in TargetIps.
-	ResolverEndpointID *string `json:"resolverEndpointID,omitempty"`
+	ResolverEndpointID  *string                                  `json:"resolverEndpointID,omitempty"`
+	ResolverEndpointRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"resolverEndpointRef,omitempty"`
 	// When you want to forward DNS queries for specified domain name to resolvers
 	// on your network, specify FORWARD.
 	//
