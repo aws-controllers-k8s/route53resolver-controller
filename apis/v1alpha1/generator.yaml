@@ -103,6 +103,10 @@ resources:
         is_primary_key: true
         print:
           name: ID
+      ResolverEndpointID:
+        references:
+          resource: ResolverEndpoint
+          path: Status.ID
       Associations:
         custom_field:
           list_of: ResolverRuleAssociation
