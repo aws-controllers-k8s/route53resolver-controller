@@ -4,8 +4,7 @@ go 1.25.0
 
 require (
 	github.com/aws-controllers-k8s/ec2-controller v1.0.4
-	github.com/aws-controllers-k8s/runtime v0.62.0
-	github.com/aws/aws-sdk-go v1.49.0
+	github.com/aws-controllers-k8s/runtime v0.63.0
 	github.com/aws/aws-sdk-go-v2 v1.34.0
 	github.com/aws/aws-sdk-go-v2/service/route53resolver v1.34.9
 	github.com/aws/smithy-go v1.22.2
@@ -19,6 +18,7 @@ require (
 )
 
 require (
+	github.com/aws/aws-sdk-go v1.49.0 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.28.6 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.47 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.21 // indirect
