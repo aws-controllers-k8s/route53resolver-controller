@@ -33,12 +33,11 @@ type ResolverEndpointSpec struct {
 
 	// Specify the applicable value:
 	//
-	//   - INBOUND: Resolver forwards DNS queries to the DNS service for a VPC
-	//     from your network
+	//    * INBOUND: Resolver forwards DNS queries to the DNS service for a VPC
+	//    from your network
 	//
-	//   - OUTBOUND: Resolver forwards DNS queries from the DNS service for a VPC
-	//     to your network
-	//
+	//    * OUTBOUND: Resolver forwards DNS queries from the DNS service for a VPC
+	//    to your network
 	// +kubebuilder:validation:Required
 	Direction *string `json:"direction"`
 	// The subnets and IP addresses in your VPC that DNS queries originate from
