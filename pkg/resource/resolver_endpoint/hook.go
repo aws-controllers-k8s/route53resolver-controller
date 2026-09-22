@@ -162,17 +162,25 @@ func (rm *resourceManager) SyncIPAddresses(
 	attached := countAttachedIPAddresses(latest)
 	deferred := 0
 	for _, ipa := range removed {
-		// Only an ATTACHED address holds a slot against the floor. Anything
-		// mid-transition or failed is left for AWS to settle and re-checked on
-		// the next pass, so it is neither double-removed nor counted here.
-		if ipa == nil || ipa.IPID == nil || !isIPAddressAttached(ipa) {
+		if ipa == nil || ipa.IPID == nil {
 			deferred++
 			continue
 		}
-		if attached-1 < minResolverEndpointIPAddresses {
+		isAttached := isIPAddressAttached(ipa)
+
+		// Only an ATTACHED address holds a slot against the endpoint's
+		// two-address floor, so gate just those on remaining headroom.
+		if isAttached && attached-1 < minResolverEndpointIPAddresses {
 			deferred++
 			continue
 		}
+		// AWS is already removing a DETACHING/DELETING address; a second call
+		// would only add noise.
+		if isIPAddressLeaving(ipa) {
+			deferred++
+			continue
+		}
+
 		resp, err := rm.sdkapi.DisassociateResolverEndpointIpAddress(
 			ctx,
 			&svcsdk.DisassociateResolverEndpointIpAddressInput{
@@ -184,10 +192,19 @@ func (rm *resourceManager) SyncIPAddresses(
 		)
 		rm.metrics.RecordAPICall("UPDATE", "DisassociateResolverEndpointIpAddress", err)
 		if err != nil {
-			return err
+			if isAttached {
+				return err
+			}
+			// A never-attached address may be refused while it is still
+			// settling. Defer rather than fail, so a user who removed an
+			// address that failed to attach still converges.
+			deferred++
+			continue
 		}
 		setIPAddressCount(latest, resp.ResolverEndpoint)
-		attached--
+		if isAttached {
+			attached--
+		}
 	}
 
 	if deferred > 0 {
@@ -221,6 +238,20 @@ func setIPAddressCount(
 func isIPAddressAttached(ipa *svcapitypes.IPAddressResponse) bool {
 	return ipa != nil && ipa.Status != nil &&
 		*ipa.Status == string(svcsdktypes.IpAddressStatusAttached)
+}
+
+// isIPAddressLeaving reports whether AWS is already removing an address, in
+// which case re-issuing the disassociate achieves nothing.
+func isIPAddressLeaving(ipa *svcapitypes.IPAddressResponse) bool {
+	if ipa == nil || ipa.Status == nil {
+		return false
+	}
+	switch *ipa.Status {
+	case string(svcsdktypes.IpAddressStatusDetaching),
+		string(svcsdktypes.IpAddressStatusDeleting):
+		return true
+	}
+	return false
 }
 
 // countAttachedIPAddresses counts the endpoint's observed ATTACHED addresses.

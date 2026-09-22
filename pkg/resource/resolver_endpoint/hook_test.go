@@ -308,6 +308,27 @@ func TestSyncIPAddresses(t *testing.T) {
 			wantTerminal:    true,
 		},
 		{
+			// knottnt on PR #80: a user who removes an address that failed to
+			// attach must be able to converge. A never-attached address holds
+			// no slot against the floor, so attempt it.
+			name:            "failed address is removed so the user converges",
+			desired:         desiredWith("subnet-a1", "subnet-a2"),
+			latest:          observed(observedIP{"subnet-a1", "ip-a1", statusAttached}, observedIP{"subnet-a2", "ip-a2", statusAttached}, observedIP{"subnet-b1", "ip-b1", statusFailed}),
+			wantAssociate:   0,
+			wantDisassociat: 1,
+		},
+		{
+			// Attempting it is safe because AWS refusing is not fatal: defer
+			// and retry rather than failing the reconcile.
+			name:            "rejected removal of a failed address defers, does not error",
+			desired:         desiredWith("subnet-a1", "subnet-a2"),
+			latest:          observed(observedIP{"subnet-a1", "ip-a1", statusAttached}, observedIP{"subnet-a2", "ip-a2", statusAttached}, observedIP{"subnet-b1", "ip-b1", statusFailed}),
+			transportErr:    errors.New("boom"),
+			wantAssociate:   0,
+			wantDisassociat: 1,
+			wantRequeue:     true,
+		},
+		{
 			name:            "no drift makes no calls",
 			desired:         desiredWith("subnet-a1", "subnet-a2"),
 			latest:          observed(observedIP{"subnet-a1", "ip-a1", statusAttached}, observedIP{"subnet-a2", "ip-a2", statusAttached}),
