@@ -37,6 +37,10 @@ MODIFY_WAIT_AFTER_SECONDS = 10
 # Time to wait after the zone has changed status, for the CR to update
 CHECK_STATUS_WAIT_SECONDS = 10
 
+# Endpoint creation provisions ENIs, so allow generous time for the controller to
+# write its first status before this rule reads the endpoint ID.
+ENDPOINT_WAIT_PERIODS = 30
+
 
 def create_resolver_endpoint():
     resolver_endpoint = random_suffix_name("resolver-endpoint-for-rule", 32)
@@ -84,6 +88,11 @@ def resolver_rule():
     res_end = create_resolver_endpoint()
     for i in res_end:
         (ref_endpoint, cr_endpoint) = i
+
+    # The endpoint is created by a helper that returns as soon as the controller
+    # consumes it, so wait for its status before reading the ID this rule needs.
+    assert k8s.wait_on_condition(ref_endpoint, "ACK.ResourceSynced", "True", wait_periods=ENDPOINT_WAIT_PERIODS)
+    cr_endpoint = k8s.get_resource(ref_endpoint)
 
     resolver_endpoint_id = cr_endpoint["status"]["id"]
     replacements = REPLACEMENT_VALUES.copy()

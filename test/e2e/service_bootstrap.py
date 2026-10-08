@@ -24,7 +24,9 @@ def service_bootstrap() -> Resources:
     logging.getLogger().setLevel(logging.INFO)
 
     resources = BootstrapResources(
-        ResolverEndpointVPC=VPC("resolver-endpoint-vpc", num_public_subnet=2, num_private_subnet=2),
+        # Four private subnets: a ResolverEndpoint needs at least two addresses,
+        # and the IP-address update test swaps to an entirely disjoint pair.
+        ResolverEndpointVPC=VPC("resolver-endpoint-vpc", num_public_subnet=2, num_private_subnet=4),
         AssociationTestVPC=VPC("association-test-vpc", num_public_subnet=0, num_private_subnet=0),
         QueryLogBucket=Bucket("ack-qlc-test"),
     )
