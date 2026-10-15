@@ -37,6 +37,15 @@ MODIFY_WAIT_AFTER_SECONDS = 10
 # Time to wait after the zone has changed status, for the CR to update
 CHECK_STATUS_WAIT_SECONDS = 10
 
+# An IP address swap deliberately spans multiple reconciles: removals are held
+# back until the newly associated addresses reach ATTACHED.
+IP_SWAP_TIMEOUT_SECONDS = 600
+IP_SWAP_INTERVAL_SECONDS = 15
+
+# Endpoint creation provisions ENIs, so allow generous time for the controller to
+# write its first status.
+CREATE_WAIT_PERIODS = 30
+
 @pytest.fixture
 def resolver_endpoint():
     resolver_endpoint = random_suffix_name("resolver-endpoint", 32)
@@ -67,6 +76,12 @@ def resolver_endpoint():
 
     assert cr is not None
     assert k8s.get_resource_exists(ref)
+
+    # wait_resource_consumed_by_controller returns once the controller has taken
+    # ownership, which can precede its first status write. Wait for the synced
+    # condition and re-read, so consumers see a populated status.
+    assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=CREATE_WAIT_PERIODS)
+    cr = k8s.get_resource(ref)
 
     yield (ref, cr)
 
@@ -105,6 +120,11 @@ def resolver_endpoint_adopt():
     k8s.create_custom_resource(ref, resource_data)
     cr = k8s.wait_resource_consumed_by_controller(ref)
 
+    # The endpoint's ID is what we adopt by, so wait for the controller to write
+    # it rather than racing its first status write.
+    assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=CREATE_WAIT_PERIODS)
+    cr = k8s.get_resource(ref)
+
     resolver_id = cr["status"]["id"]
 
     assert cr is not None
@@ -132,6 +152,9 @@ def resolver_endpoint_adopt():
     assert cr is not None
     assert k8s.get_resource_exists(ref)
 
+    assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=CREATE_WAIT_PERIODS)
+    cr = k8s.get_resource(ref)
+
     yield (ref, cr)
 
     # Try to delete, if doesn't already exist
@@ -144,6 +167,35 @@ def get_security_group(vpc_id: str) -> str:
     filters = [{'Name': 'vpc-id', 'Values': [vpc_id]}]
     response = ec2_client.describe_security_groups(Filters=filters)
     return response['SecurityGroups'][0]['GroupId']
+
+
+def get_endpoint_subnets(route53resolver_client, resolver_endpoint_id: str) -> set:
+    """Return the set of subnet IDs currently associated with the endpoint."""
+    subnets = set()
+    paginator = route53resolver_client.get_paginator("list_resolver_endpoint_ip_addresses")
+    for page in paginator.paginate(ResolverEndpointId=resolver_endpoint_id):
+        for ip in page["IpAddresses"]:
+            subnets.add(ip["SubnetId"])
+    return subnets
+
+
+def wait_for_endpoint_subnets(
+    route53resolver_client,
+    resolver_endpoint_id: str,
+    expected: set,
+    timeout_seconds: int = IP_SWAP_TIMEOUT_SECONDS,
+    interval_seconds: int = IP_SWAP_INTERVAL_SECONDS,
+) -> set:
+    """Poll until the endpoint's subnets equal expected, or the timeout elapses.
+
+    Returns the last observed set so the caller can assert on it.
+    """
+    deadline = time.time() + timeout_seconds
+    observed = get_endpoint_subnets(route53resolver_client, resolver_endpoint_id)
+    while observed != expected and time.time() < deadline:
+        time.sleep(interval_seconds)
+        observed = get_endpoint_subnets(route53resolver_client, resolver_endpoint_id)
+    return observed
 
 @service_marker
 @pytest.mark.canary
@@ -226,4 +278,47 @@ class TestResolverEndpoint:
             assert aws_res is not None
         except route53resolver_client.exceptions.ResourceNotFoundException:
             pytest.fail(f"Could not find Resolver Endpoint with ID '{resolver_endpoint_id}' in Route53")
+
+    def test_update_ip_addresses_subnet_swap(self, route53resolver_client, resolver_endpoint):
+        """Swapping spec.ipAddresses to a disjoint set of subnets must converge
+        to exactly the desired addresses, leaving no stale address behind.
+
+        Regression test for aws-controllers-k8s/community#3028, where the
+        controller associated the new addresses and immediately disassociated
+        the old ones. The last removal was rejected by Route 53 because the new
+        addresses had not attached yet, stranding one old address.
+        """
+        (ref, cr) = resolver_endpoint
+
+        resolver_endpoint_id = cr["status"]["id"]
+        assert resolver_endpoint_id
+
+        subnet_ids = get_bootstrap_resources().ResolverEndpointVPC.private_subnets.subnet_ids
+        original_subnets = {subnet_ids[0], subnet_ids[1]}
+        new_subnets = {subnet_ids[2], subnet_ids[3]}
+
+        assert get_endpoint_subnets(route53resolver_client, resolver_endpoint_id) == original_subnets
+
+        updates = {
+            "spec": {
+                "ipAddresses": [{"subnetID": subnet_ids[2]}, {"subnetID": subnet_ids[3]}]
+            }
+        }
+        k8s.patch_custom_resource(ref, updates)
+
+        # The swap needs more than one reconcile by design: removals are held
+        # back until the newly associated addresses reach ATTACHED. Poll for the
+        # converged set rather than sleeping a fixed amount.
+        observed = wait_for_endpoint_subnets(
+            route53resolver_client, resolver_endpoint_id, new_subnets,
+        )
+        assert observed == new_subnets, (
+            f"endpoint did not converge: expected {new_subnets}, observed {observed}"
+        )
+
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=30)
+
+        cr = k8s.get_resource(ref)
+        cr_subnets = {ip["subnetID"] for ip in cr["spec"]["ipAddresses"]}
+        assert cr_subnets == new_subnets
 
