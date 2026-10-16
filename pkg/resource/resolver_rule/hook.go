@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	svcapitypes "github.com/aws-controllers-k8s/route53resolver-controller/apis/v1alpha1"
@@ -263,4 +264,22 @@ func (rm *resourceManager) syncTags(
 	latest *resource,
 ) (err error) {
 	return tags.SyncTags(ctx, desired.ko.Spec.Tags, latest.ko.Spec.Tags, latest.ko.Status.ACKResourceMetadata, convertToOrderedACKTags, rm.sdkapi, rm.metrics)
+}
+
+// compareDomainName compares Spec.DomainName ignoring the trailing dot AWS appends.
+func compareDomainName(
+	delta *ackcompare.Delta,
+	a *resource,
+	b *resource,
+) {
+	if ackcompare.HasNilDifference(a.ko.Spec.DomainName, b.ko.Spec.DomainName) {
+		delta.Add("Spec.DomainName", a.ko.Spec.DomainName, b.ko.Spec.DomainName)
+		return
+	}
+	if a.ko.Spec.DomainName == nil {
+		return
+	}
+	if strings.TrimSuffix(*a.ko.Spec.DomainName, ".") != strings.TrimSuffix(*b.ko.Spec.DomainName, ".") {
+		delta.Add("Spec.DomainName", a.ko.Spec.DomainName, b.ko.Spec.DomainName)
+	}
 }
