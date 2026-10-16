@@ -75,6 +75,63 @@ func observed(ips ...observedIP) *resource {
 	return &resource{ko}
 }
 
+// observedAddr is one observed address including the ip/ipv6 AWS reports.
+// The SDK reports the two independently, so an IPv6-only address leaves ip
+// empty.
+type observedAddr struct {
+	subnetID string
+	ipID     string
+	status   string
+	ip       string
+	ipv6     string
+}
+
+// observedWithAddrs is observed() for cases that need the reported ip/ipv6,
+// paired the same way ListAttachedIPAddresses pairs them.
+func observedWithAddrs(addrs ...observedAddr) *resource {
+	ko := &svcapitypes.ResolverEndpoint{}
+	ko.Status.ID = aws.String("rslvr-out-test")
+	for _, a := range addrs {
+		spec := &svcapitypes.IPAddressRequest{SubnetID: aws.String(a.subnetID)}
+		if a.ip != "" {
+			spec.IP = aws.String(a.ip)
+		}
+		if a.ipv6 != "" {
+			spec.IPv6 = aws.String(a.ipv6)
+		}
+		ko.Spec.IPAddresses = append(ko.Spec.IPAddresses, spec)
+		entry := &svcapitypes.IPAddressResponse{
+			SubnetID: aws.String(a.subnetID),
+			Status:   aws.String(a.status),
+		}
+		if a.ipID != "" {
+			entry.IPID = aws.String(a.ipID)
+		}
+		ko.Status.IPAddresses = append(ko.Status.IPAddresses, entry)
+	}
+	return &resource{ko}
+}
+
+// desiredAddr builds a desired Spec.IPAddresses entry, leaving ip or ipv6 unset
+// when empty — which is what a user who lets AWS choose an address writes.
+func desiredAddr(subnetID, ip, ipv6 string) *svcapitypes.IPAddressRequest {
+	addr := &svcapitypes.IPAddressRequest{SubnetID: aws.String(subnetID)}
+	if ip != "" {
+		addr.IP = aws.String(ip)
+	}
+	if ipv6 != "" {
+		addr.IPv6 = aws.String(ipv6)
+	}
+	return addr
+}
+
+// desiredAddrs wraps desired Spec.IPAddresses entries in a resource.
+func desiredAddrs(addrs ...*svcapitypes.IPAddressRequest) *resource {
+	ko := &svcapitypes.ResolverEndpoint{}
+	ko.Spec.IPAddresses = addrs
+	return &resource{ko}
+}
+
 // desiredWith builds a desired resource declaring the given subnets.
 func desiredWith(subnetIDs ...string) *resource {
 	ko := &svcapitypes.ResolverEndpoint{}
@@ -122,6 +179,63 @@ func TestGetIPAddressDifference(t *testing.T) {
 			name:        "desired entry with nil subnet is skipped",
 			desired:     &resource{&svcapitypes.ResolverEndpoint{Spec: svcapitypes.ResolverEndpointSpec{IPAddresses: []*svcapitypes.IPAddressRequest{nil, {SubnetID: nil}, {SubnetID: aws.String("subnet-b1")}}}}},
 			latest:      observed(observedIP{"subnet-b1", "ip-b1", statusAttached}),
+			wantAdded:   nil,
+			wantRemoved: nil,
+		},
+		{
+			// community#3090: the reported symptom. Route 53 Resolver cannot
+			// change an address in place, so this is a replacement.
+			name:        "changed ip in an unchanged subnet is a replacement",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "10.0.1.60", ""), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", ""}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "10.0.2.50", ""}),
+			wantAdded:   []string{"subnet-a1"},
+			wantRemoved: []string{"ip-a1"},
+		},
+		{
+			name:        "pinned ip matching the reported address is no change",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "10.0.1.50", ""), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", ""}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "10.0.2.50", ""}),
+			wantAdded:   nil,
+			wantRemoved: nil,
+		},
+		{
+			// community#3029: AWS assigns an address when the user leaves ip
+			// unset, so an unset field must never be compared.
+			name:        "unset ip never diffs against the address AWS assigned",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", ""), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", ""}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "10.0.2.50", ""}),
+			wantAdded:   nil,
+			wantRemoved: nil,
+		},
+		{
+			name:        "unset ip and ipv6 never diff against an IPv6-only address",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", ""), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "", "2001:db8::5"}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "", "2001:db8::6"}),
+			wantAdded:   nil,
+			wantRemoved: nil,
+		},
+		{
+			name:        "changed ipv6 in an unchanged subnet is a replacement",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", "2001:db8::9"), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "", "2001:db8::5"}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "", "2001:db8::6"}),
+			wantAdded:   []string{"subnet-a1"},
+			wantRemoved: []string{"ip-a1"},
+		},
+		{
+			// community#3090, second symptom: two entries in one subnet against
+			// one observed address must associate the second.
+			name:        "a second address in an already-used subnet is associated",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", ""), desiredAddr("subnet-a1", "", ""), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", ""}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "10.0.2.50", ""}),
+			wantAdded:   []string{"subnet-a1"},
+			wantRemoved: nil,
+		},
+		{
+			// A pinned sibling must keep its own address rather than lose it to
+			// an entry that let AWS choose.
+			name:        "an unset-ip sibling does not consume the pinned entry's address",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", ""), desiredAddr("subnet-a1", "10.0.1.50", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", ""}, observedAddr{"subnet-a1", "ip-a2", statusAttached, "10.0.1.51", ""}),
 			wantAdded:   nil,
 			wantRemoved: nil,
 		},
