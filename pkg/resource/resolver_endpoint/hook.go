@@ -3,6 +3,7 @@ package resolver_endpoint
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"time"
 
 	svcapitypes "github.com/aws-controllers-k8s/route53resolver-controller/apis/v1alpha1"
@@ -401,12 +402,27 @@ func matchesIPAddress(desired, observed *svcapitypes.IPAddressRequest) bool {
 }
 
 // equalIPAddressField compares two optional address fields, treating two unset
-// fields as equal.
+// fields as equal. One address has several valid textual forms, and AWS echoes
+// its own, so two set fields are compared as parsed addresses: a user writing
+// 2001:0db8::0009 must not read as a difference from the 2001:db8::9 AWS
+// reports, which no update could resolve. A value that does not parse is
+// compared as text so a malformed field still compares deterministically.
 func equalIPAddressField(a, b *string) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}
-	return *a == *b
+	if *a == *b {
+		return true
+	}
+	addrA, err := netip.ParseAddr(*a)
+	if err != nil {
+		return false
+	}
+	addrB, err := netip.ParseAddr(*b)
+	if err != nil {
+		return false
+	}
+	return addrA.Unmap() == addrB.Unmap()
 }
 
 // getTags retrieves the resource's associated tags.

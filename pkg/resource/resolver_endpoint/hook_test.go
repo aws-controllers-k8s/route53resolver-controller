@@ -222,7 +222,22 @@ func TestGetIPAddressDifference(t *testing.T) {
 			wantRemoved: []string{"ip-a1"},
 		},
 		{
-			// community#3090, second symptom: two entries in one subnet against
+			// An address has several valid textual forms and AWS echoes its
+			// own, so the form must not decide whether this is a change.
+			name:        "ipv6 written in another textual form is not a change",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", "2001:0DB8:0000:0000:0000:0000:0000:0005"), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "", "2001:db8::5"}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "", "2001:db8::6"}),
+			wantAdded:   nil,
+			wantRemoved: nil,
+		},
+		{
+			name:        "a different ipv6 in expanded form is still a replacement",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", "2001:0db8:0000:0000:0000:0000:0000:0009"), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "", "2001:db8::5"}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "", "2001:db8::6"}),
+			wantAdded:   []string{"subnet-a1"},
+			wantRemoved: []string{"ip-a1"},
+		},
+		{
 			// one observed address must associate the second.
 			name:        "a second address in an already-used subnet is associated",
 			desired:     desiredAddrs(desiredAddr("subnet-a1", "", ""), desiredAddr("subnet-a1", "", ""), desiredAddr("subnet-a2", "", "")),
@@ -256,6 +271,40 @@ func TestGetIPAddressDifference(t *testing.T) {
 			}
 			assertStrings(t, "added", tt.wantAdded, gotAdded)
 			assertStrings(t, "removed", tt.wantRemoved, gotRemoved)
+		})
+	}
+}
+
+// TestEqualIPAddressField pins the field comparison the matcher is built on:
+// the same address in different textual forms is one address, and a value that
+// does not parse falls back to a text comparison.
+func TestEqualIPAddressField(t *testing.T) {
+	tests := []struct {
+		name string
+		a    *string
+		b    *string
+		want bool
+	}{
+		{name: "both unset", a: nil, b: nil, want: true},
+		{name: "one unset", a: aws.String("10.0.1.50"), b: nil, want: false},
+		{name: "identical text", a: aws.String("10.0.1.50"), b: aws.String("10.0.1.50"), want: true},
+		{name: "different ipv4", a: aws.String("10.0.1.50"), b: aws.String("10.0.1.60"), want: false},
+		{name: "ipv6 compressed against expanded", a: aws.String("2001:0db8:0000:0000:0000:0000:0000:0005"), b: aws.String("2001:db8::5"), want: true},
+		{name: "ipv6 uppercase hex", a: aws.String("2001:DB8::5"), b: aws.String("2001:db8::5"), want: true},
+		{name: "different ipv6", a: aws.String("2001:db8::5"), b: aws.String("2001:db8::9"), want: false},
+		{name: "ipv4 mapped into ipv6", a: aws.String("::ffff:10.0.1.50"), b: aws.String("10.0.1.50"), want: true},
+		{name: "unparsable against parsable", a: aws.String("not-an-address"), b: aws.String("10.0.1.50"), want: false},
+		{name: "identical unparsable text", a: aws.String("not-an-address"), b: aws.String("not-an-address"), want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := equalIPAddressField(tt.a, tt.b); got != tt.want {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+			if got := equalIPAddressField(tt.b, tt.a); got != tt.want {
+				t.Fatalf("reversed: got %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
