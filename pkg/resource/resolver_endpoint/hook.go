@@ -3,6 +3,7 @@ package resolver_endpoint
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"time"
 
 	svcapitypes "github.com/aws-controllers-k8s/route53resolver-controller/apis/v1alpha1"
@@ -268,51 +269,160 @@ func countAttachedIPAddresses(r *resource) int {
 func (rm *resourceManager) GetIPAddressDifference(
 	desired, latest *resource,
 ) (added []*svcapitypes.IPAddressRequest, removed []*svcapitypes.IPAddressResponse) {
+	added, removed, _ = ipAddressDifference(desired, latest)
+	return added, removed
+}
 
+// ipAddressDifference computes the addresses to associate and to disassociate.
+// It is package-level and shared with customPostCompare, so the delta reports a
+// Spec.IPAddresses difference exactly when there is work here — the two sides
+// used to implement the same identity separately, and a changed ip was
+// invisible to both (community#3090).
+//
+// An address is identified by its subnet plus whichever of ip/ipv6 the user
+// set. A field the user left unset is not compared: AWS assigns an IP when ip
+// is unset, so comparing it reports a difference no update can resolve
+// (community#3029). Matching consumes one observed address per desired entry,
+// most specific first, so two entries in one subnet are told apart and a
+// changed ip becomes one association plus one disassociation.
+//
+// unmatchedObserved counts every observed address no desired entry claimed,
+// whereas removed holds only those carrying a Status entry, since disassociating
+// needs its IPID. The two differ only if Status is shorter than Spec, which
+// ListAttachedIPAddresses never produces; the comparator keys on the count so a
+// difference stays visible even then, rather than reporting a synced resource
+// that has drifted.
+func ipAddressDifference(
+	desired, latest *resource,
+) (
+	added []*svcapitypes.IPAddressRequest,
+	removed []*svcapitypes.IPAddressResponse,
+	unmatchedObserved int,
+) {
+	if desired == nil || latest == nil || desired.ko == nil || latest.ko == nil {
+		return nil, nil, 0
+	}
+
+	observed := latest.ko.Spec.IPAddresses
+	claimedObserved := make([]bool, len(observed))
+
+	// ListAttachedIPAddresses appends to Spec.IPAddresses and
+	// Status.IPAddresses together, so entry i of each describes the same
+	// address. Bound the Status lookup anyway: nothing in the schema enforces
+	// that, and an unpaired entry would otherwise index out of range.
+	paired := len(observed)
+	if n := len(latest.ko.Status.IPAddresses); n < paired {
+		paired = n
+	}
+
+	// Desired entries in spec order, so added preserves it. An entry with no
+	// subnet ID is skipped: it names no place to associate into.
+	type candidate struct {
+		addr    *svcapitypes.IPAddressRequest
+		pinned  bool
+		claimed bool
+	}
+	candidates := make([]*candidate, 0, len(desired.ko.Spec.IPAddresses))
 	for _, ipa := range desired.ko.Spec.IPAddresses {
 		if ipa == nil || ipa.SubnetID == nil {
 			continue
 		}
-		if !inIpAddress(*ipa.SubnetID, latest.ko.Spec.IPAddresses) {
-			added = append(added, ipa)
+		candidates = append(candidates, &candidate{
+			addr:   ipa,
+			pinned: ipa.IP != nil || ipa.IPv6 != nil,
+		})
+	}
+
+	claim := func(
+		pinned bool,
+		matches func(desired, observed *svcapitypes.IPAddressRequest) bool,
+	) {
+		for _, c := range candidates {
+			if c.claimed || c.pinned != pinned {
+				continue
+			}
+			for i, obs := range observed {
+				if claimedObserved[i] || obs == nil || obs.SubnetID == nil {
+					continue
+				}
+				if *obs.SubnetID != *c.addr.SubnetID || !matches(c.addr, obs) {
+					continue
+				}
+				claimedObserved[i] = true
+				c.claimed = true
+				break
+			}
 		}
 	}
 
-	// ListAttachedIPAddresses appends to Spec.IPAddresses and
-	// Status.IPAddresses together, so entry i of each describes the same
-	// address. Bound the walk anyway: nothing in the schema enforces that, and
-	// an unpaired entry would otherwise index out of range.
-	paired := len(latest.ko.Spec.IPAddresses)
-	if n := len(latest.ko.Status.IPAddresses); n < paired {
-		paired = n
+	// Most specific first, so a desired entry never loses its observed address
+	// to a less specific sibling that had an alternative. AWS cannot return two
+	// addresses in one subnet sharing an ip or ipv6, so the exact sub-pass is
+	// hardening rather than a fix for a reachable state.
+	claim(true, sameIPAddress)
+	claim(true, matchesIPAddress)
+	claim(false, matchesIPAddress)
+
+	for _, c := range candidates {
+		if !c.claimed {
+			added = append(added, c.addr)
+		}
 	}
-	for i := 0; i < paired; i++ {
-		ipa := latest.ko.Spec.IPAddresses[i]
-		if ipa == nil || ipa.SubnetID == nil {
+	for i, obs := range observed {
+		if claimedObserved[i] || obs == nil || obs.SubnetID == nil {
 			continue
 		}
-		if !inIpAddress(*ipa.SubnetID, desired.ko.Spec.IPAddresses) {
+		unmatchedObserved++
+		if i < paired {
 			removed = append(removed, latest.ko.Status.IPAddresses[i])
 		}
 	}
 
-	return added, removed
+	return added, removed, unmatchedObserved
 }
 
-func inIpAddress(
-	subnetId string,
-	ipAddresses []*svcapitypes.IPAddressRequest,
-) bool {
+// sameIPAddress reports whether an observed address is the address a desired
+// entry names field for field: every address field agrees, so the observed
+// address sets nothing the desired entry left unset.
+func sameIPAddress(desired, observed *svcapitypes.IPAddressRequest) bool {
+	return equalIPAddressField(desired.IP, observed.IP) &&
+		equalIPAddressField(desired.IPv6, observed.IPv6)
+}
 
-	for _, ipa := range ipAddresses {
-		if ipa == nil || ipa.SubnetID == nil {
-			continue
-		}
-		if *ipa.SubnetID == subnetId {
-			return true
-		}
+// matchesIPAddress reports whether an observed address can be the address a
+// desired entry names, ignoring any field the user left unset.
+func matchesIPAddress(desired, observed *svcapitypes.IPAddressRequest) bool {
+	if desired.IP != nil && !equalIPAddressField(desired.IP, observed.IP) {
+		return false
 	}
-	return false
+	if desired.IPv6 != nil && !equalIPAddressField(desired.IPv6, observed.IPv6) {
+		return false
+	}
+	return true
+}
+
+// equalIPAddressField compares two optional address fields, treating two unset
+// fields as equal. One address has several valid textual forms, and AWS echoes
+// its own, so two set fields are compared as parsed addresses: a user writing
+// 2001:0db8::0009 must not read as a difference from the 2001:db8::9 AWS
+// reports, which no update could resolve. A value that does not parse is
+// compared as text so a malformed field still compares deterministically.
+func equalIPAddressField(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	if *a == *b {
+		return true
+	}
+	addrA, err := netip.ParseAddr(*a)
+	if err != nil {
+		return false
+	}
+	addrB, err := netip.ParseAddr(*b)
+	if err != nil {
+		return false
+	}
+	return addrA.Unmap() == addrB.Unmap()
 }
 
 // getTags retrieves the resource's associated tags.

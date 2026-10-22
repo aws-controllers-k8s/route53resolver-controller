@@ -75,6 +75,63 @@ func observed(ips ...observedIP) *resource {
 	return &resource{ko}
 }
 
+// observedAddr is one observed address including the ip/ipv6 AWS reports.
+// The SDK reports the two independently, so an IPv6-only address leaves ip
+// empty.
+type observedAddr struct {
+	subnetID string
+	ipID     string
+	status   string
+	ip       string
+	ipv6     string
+}
+
+// observedWithAddrs is observed() for cases that need the reported ip/ipv6,
+// paired the same way ListAttachedIPAddresses pairs them.
+func observedWithAddrs(addrs ...observedAddr) *resource {
+	ko := &svcapitypes.ResolverEndpoint{}
+	ko.Status.ID = aws.String("rslvr-out-test")
+	for _, a := range addrs {
+		spec := &svcapitypes.IPAddressRequest{SubnetID: aws.String(a.subnetID)}
+		if a.ip != "" {
+			spec.IP = aws.String(a.ip)
+		}
+		if a.ipv6 != "" {
+			spec.IPv6 = aws.String(a.ipv6)
+		}
+		ko.Spec.IPAddresses = append(ko.Spec.IPAddresses, spec)
+		entry := &svcapitypes.IPAddressResponse{
+			SubnetID: aws.String(a.subnetID),
+			Status:   aws.String(a.status),
+		}
+		if a.ipID != "" {
+			entry.IPID = aws.String(a.ipID)
+		}
+		ko.Status.IPAddresses = append(ko.Status.IPAddresses, entry)
+	}
+	return &resource{ko}
+}
+
+// desiredAddr builds a desired Spec.IPAddresses entry, leaving ip or ipv6 unset
+// when empty — which is what a user who lets AWS choose an address writes.
+func desiredAddr(subnetID, ip, ipv6 string) *svcapitypes.IPAddressRequest {
+	addr := &svcapitypes.IPAddressRequest{SubnetID: aws.String(subnetID)}
+	if ip != "" {
+		addr.IP = aws.String(ip)
+	}
+	if ipv6 != "" {
+		addr.IPv6 = aws.String(ipv6)
+	}
+	return addr
+}
+
+// desiredAddrs wraps desired Spec.IPAddresses entries in a resource.
+func desiredAddrs(addrs ...*svcapitypes.IPAddressRequest) *resource {
+	ko := &svcapitypes.ResolverEndpoint{}
+	ko.Spec.IPAddresses = addrs
+	return &resource{ko}
+}
+
 // desiredWith builds a desired resource declaring the given subnets.
 func desiredWith(subnetIDs ...string) *resource {
 	ko := &svcapitypes.ResolverEndpoint{}
@@ -125,6 +182,78 @@ func TestGetIPAddressDifference(t *testing.T) {
 			wantAdded:   nil,
 			wantRemoved: nil,
 		},
+		{
+			// community#3090: the reported symptom. Route 53 Resolver cannot
+			// change an address in place, so this is a replacement.
+			name:        "changed ip in an unchanged subnet is a replacement",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "10.0.1.60", ""), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", ""}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "10.0.2.50", ""}),
+			wantAdded:   []string{"subnet-a1"},
+			wantRemoved: []string{"ip-a1"},
+		},
+		{
+			name:        "pinned ip matching the reported address is no change",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "10.0.1.50", ""), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", ""}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "10.0.2.50", ""}),
+			wantAdded:   nil,
+			wantRemoved: nil,
+		},
+		{
+			// community#3029: AWS assigns an address when the user leaves ip
+			// unset, so an unset field must never be compared.
+			name:        "unset ip never diffs against the address AWS assigned",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", ""), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", ""}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "10.0.2.50", ""}),
+			wantAdded:   nil,
+			wantRemoved: nil,
+		},
+		{
+			name:        "unset ip and ipv6 never diff against an IPv6-only address",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", ""), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "", "2001:db8::5"}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "", "2001:db8::6"}),
+			wantAdded:   nil,
+			wantRemoved: nil,
+		},
+		{
+			name:        "changed ipv6 in an unchanged subnet is a replacement",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", "2001:db8::9"), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "", "2001:db8::5"}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "", "2001:db8::6"}),
+			wantAdded:   []string{"subnet-a1"},
+			wantRemoved: []string{"ip-a1"},
+		},
+		{
+			// An address has several valid textual forms and AWS echoes its
+			// own, so the form must not decide whether this is a change.
+			name:        "ipv6 written in another textual form is not a change",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", "2001:0DB8:0000:0000:0000:0000:0000:0005"), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "", "2001:db8::5"}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "", "2001:db8::6"}),
+			wantAdded:   nil,
+			wantRemoved: nil,
+		},
+		{
+			name:        "a different ipv6 in expanded form is still a replacement",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", "2001:0db8:0000:0000:0000:0000:0000:0009"), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "", "2001:db8::5"}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "", "2001:db8::6"}),
+			wantAdded:   []string{"subnet-a1"},
+			wantRemoved: []string{"ip-a1"},
+		},
+		{
+			// one observed address must associate the second.
+			name:        "a second address in an already-used subnet is associated",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", ""), desiredAddr("subnet-a1", "", ""), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", ""}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "10.0.2.50", ""}),
+			wantAdded:   []string{"subnet-a1"},
+			wantRemoved: nil,
+		},
+		{
+			// A pinned sibling must keep its own address rather than lose it to
+			// an entry that let AWS choose.
+			name:        "an unset-ip sibling does not consume the pinned entry's address",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", ""), desiredAddr("subnet-a1", "10.0.1.50", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", ""}, observedAddr{"subnet-a1", "ip-a2", statusAttached, "10.0.1.51", ""}),
+			wantAdded:   nil,
+			wantRemoved: nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -142,6 +271,40 @@ func TestGetIPAddressDifference(t *testing.T) {
 			}
 			assertStrings(t, "added", tt.wantAdded, gotAdded)
 			assertStrings(t, "removed", tt.wantRemoved, gotRemoved)
+		})
+	}
+}
+
+// TestEqualIPAddressField pins the field comparison the matcher is built on:
+// the same address in different textual forms is one address, and a value that
+// does not parse falls back to a text comparison.
+func TestEqualIPAddressField(t *testing.T) {
+	tests := []struct {
+		name string
+		a    *string
+		b    *string
+		want bool
+	}{
+		{name: "both unset", a: nil, b: nil, want: true},
+		{name: "one unset", a: aws.String("10.0.1.50"), b: nil, want: false},
+		{name: "identical text", a: aws.String("10.0.1.50"), b: aws.String("10.0.1.50"), want: true},
+		{name: "different ipv4", a: aws.String("10.0.1.50"), b: aws.String("10.0.1.60"), want: false},
+		{name: "ipv6 compressed against expanded", a: aws.String("2001:0db8:0000:0000:0000:0000:0000:0005"), b: aws.String("2001:db8::5"), want: true},
+		{name: "ipv6 uppercase hex", a: aws.String("2001:DB8::5"), b: aws.String("2001:db8::5"), want: true},
+		{name: "different ipv6", a: aws.String("2001:db8::5"), b: aws.String("2001:db8::9"), want: false},
+		{name: "ipv4 mapped into ipv6", a: aws.String("::ffff:10.0.1.50"), b: aws.String("10.0.1.50"), want: true},
+		{name: "unparsable against parsable", a: aws.String("not-an-address"), b: aws.String("10.0.1.50"), want: false},
+		{name: "identical unparsable text", a: aws.String("not-an-address"), b: aws.String("not-an-address"), want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := equalIPAddressField(tt.a, tt.b); got != tt.want {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+			if got := equalIPAddressField(tt.b, tt.a); got != tt.want {
+				t.Fatalf("reversed: got %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

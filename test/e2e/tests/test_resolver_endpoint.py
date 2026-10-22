@@ -162,6 +162,66 @@ def resolver_endpoint_adopt():
     assert deleted
 
 
+def get_endpoint_addresses(route53resolver_client, resolver_endpoint_id: str) -> set:
+    """Return the endpoint's {(subnet ID, IP)} pairs, as AWS reports them."""
+    addresses = set()
+    paginator = route53resolver_client.get_paginator("list_resolver_endpoint_ip_addresses")
+    for page in paginator.paginate(ResolverEndpointId=resolver_endpoint_id):
+        for ip in page["IpAddresses"]:
+            addresses.add((ip["SubnetId"], ip.get("Ip")))
+    return addresses
+
+
+def wait_for_endpoint_addresses(
+    route53resolver_client,
+    resolver_endpoint_id: str,
+    expected: set,
+    timeout_seconds: int = IP_SWAP_TIMEOUT_SECONDS,
+    interval_seconds: int = IP_SWAP_INTERVAL_SECONDS,
+) -> set:
+    """Poll until the endpoint's (subnet, IP) pairs equal expected, or time out.
+
+    Returns the last observed set so the caller can assert on it.
+    """
+    deadline = time.time() + timeout_seconds
+    observed = get_endpoint_addresses(route53resolver_client, resolver_endpoint_id)
+    while observed != expected and time.time() < deadline:
+        time.sleep(interval_seconds)
+        observed = get_endpoint_addresses(route53resolver_client, resolver_endpoint_id)
+    return observed
+
+
+def find_free_subnet_ip(subnet_id: str, avoid: set) -> str:
+    """Return an unused host IP in the subnet, or None if none is free.
+
+    Skips the addresses AWS reserves, every private IP already held by an ENI in
+    the subnet, and anything the caller asks to avoid. hosts() already drops the
+    network and broadcast addresses, so the slice drops the three remaining
+    reserved ones (.1 router, .2 DNS, .3 future use) and the last usable.
+    """
+    import ipaddress
+
+    ec2_client = boto3.client("ec2")
+    subnet = ec2_client.describe_subnets(SubnetIds=[subnet_id])["Subnets"][0]
+    network = ipaddress.ip_network(subnet["CidrBlock"])
+
+    taken = set(avoid)
+    enis = ec2_client.describe_network_interfaces(
+        Filters=[{"Name": "subnet-id", "Values": [subnet_id]}],
+    )["NetworkInterfaces"]
+    for eni in enis:
+        for addr in eni.get("PrivateIpAddresses", []):
+            taken.add(addr.get("PrivateIpAddress"))
+
+    hosts = list(network.hosts())
+    # hosts() excludes the network and broadcast addresses; drop AWS's three
+    # other reserved addresses and the last usable one.
+    for candidate in hosts[3:-1]:
+        if str(candidate) not in taken:
+            return str(candidate)
+    return None
+
+
 def get_security_group(vpc_id: str) -> str:
     ec2_client = boto3.client("ec2")
     filters = [{'Name': 'vpc-id', 'Values': [vpc_id]}]
@@ -321,4 +381,62 @@ class TestResolverEndpoint:
         cr = k8s.get_resource(ref)
         cr_subnets = {ip["subnetID"] for ip in cr["spec"]["ipAddresses"]}
         assert cr_subnets == new_subnets
+
+    def test_update_ip_address_within_subnet(self, route53resolver_client, resolver_endpoint):
+        """Changing spec.ipAddresses[].ip while keeping the subnet must replace
+        the address in AWS.
+
+        Regression test for aws-controllers-k8s/community#3090, where the
+        controller identified an address by its subnet alone. The changed IP
+        produced no delta and no association, so the CR reported
+        ACK.ResourceSynced=True while the endpoint kept the old address.
+        """
+        (ref, cr) = resolver_endpoint
+
+        resolver_endpoint_id = cr["status"]["id"]
+        assert resolver_endpoint_id
+
+        subnet_ids = get_bootstrap_resources().ResolverEndpointVPC.private_subnets.subnet_ids
+        pinned_subnet = subnet_ids[0]
+        other_subnet = subnet_ids[1]
+
+        before = get_endpoint_addresses(route53resolver_client, resolver_endpoint_id)
+        assert {subnet for subnet, _ in before} == {pinned_subnet, other_subnet}
+
+        old_ip = next(ip for subnet, ip in before if subnet == pinned_subnet)
+        other_ip = next(ip for subnet, ip in before if subnet == other_subnet)
+
+        new_ip = find_free_subnet_ip(pinned_subnet, avoid={old_ip, other_ip})
+        if new_ip is None:
+            pytest.skip(f"no free IP available in subnet {pinned_subnet}")
+
+        updates = {
+            "spec": {
+                "ipAddresses": [
+                    {"subnetID": pinned_subnet, "ip": new_ip},
+                    {"subnetID": other_subnet},
+                ]
+            }
+        }
+        k8s.patch_custom_resource(ref, updates)
+
+        # Route 53 Resolver cannot change an address in place, so this is an
+        # associate followed by a disassociate. The removal is deliberately held
+        # back until the new address reaches ATTACHED, so poll for the converged
+        # set rather than sleeping a fixed amount.
+        expected = {(pinned_subnet, new_ip), (other_subnet, other_ip)}
+        observed = wait_for_endpoint_addresses(
+            route53resolver_client, resolver_endpoint_id, expected,
+        )
+        assert observed == expected, (
+            f"endpoint did not replace the address: expected {expected}, observed {observed}"
+        )
+
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=30)
+
+        cr = k8s.get_resource(ref)
+        cr_addresses = {
+            (ip["subnetID"], ip.get("ip")) for ip in cr["spec"]["ipAddresses"]
+        }
+        assert (pinned_subnet, new_ip) in cr_addresses
 
