@@ -41,19 +41,13 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
+	compareDomainName(delta, a, b)
 
 	if len(a.ko.Spec.Associations) != len(b.ko.Spec.Associations) {
 		delta.Add("Spec.Associations", a.ko.Spec.Associations, b.ko.Spec.Associations)
 	} else if len(a.ko.Spec.Associations) > 0 {
 		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Associations, b.ko.Spec.Associations) {
 			delta.Add("Spec.Associations", a.ko.Spec.Associations, b.ko.Spec.Associations)
-		}
-	}
-	if ackcompare.HasNilDifference(a.ko.Spec.DomainName, b.ko.Spec.DomainName) {
-		delta.Add("Spec.DomainName", a.ko.Spec.DomainName, b.ko.Spec.DomainName)
-	} else if a.ko.Spec.DomainName != nil && b.ko.Spec.DomainName != nil {
-		if *a.ko.Spec.DomainName != *b.ko.Spec.DomainName {
-			delta.Add("Spec.DomainName", a.ko.Spec.DomainName, b.ko.Spec.DomainName)
 		}
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Name, b.ko.Spec.Name) {

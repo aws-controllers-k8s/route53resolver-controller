@@ -118,6 +118,9 @@ resources:
       Associations:
         custom_field:
           list_of: ResolverRuleAssociation
+      DomainName:
+        compare:
+          is_ignored: true
     renames:
       operations:
         GetResolverRule:
@@ -130,6 +133,8 @@ resources:
           input_fields:
             ResolverRuleId: Id
     hooks:
+      delta_pre_compare:
+        code: compareDomainName(delta, a, b)
       sdk_create_post_build_request:
         template_path: hooks/resolver_rule/sdk_create_post_build_request.go.tpl
       sdk_create_post_set_output:
