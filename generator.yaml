@@ -71,10 +71,12 @@ resources:
         is_read_only: true
         custom_field:
           list_of: IpAddressResponse
-        # Compared as a subnet-keyed set in the delta_post_compare hook
-        # (customPostCompare), matching how GetIPAddressDifference computes the
-        # addresses to associate and disassociate; the generated
-        # order-sensitive comparison is skipped.
+        # Compared in the delta_post_compare hook (customPostCompare), which
+        # asks the same differ GetIPAddressDifference uses, so a difference is
+        # reported exactly when there are addresses to associate or
+        # disassociate. An address is identified by its subnet plus whichever of
+        # ip/ipv6 the user set; the generated order-sensitive comparison is
+        # skipped.
         compare:
           is_ignored: true
     renames:

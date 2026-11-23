@@ -1,18 +1,20 @@
 package resolver_endpoint
 
 import (
-	"maps"
-
-	svcapitypes "github.com/aws-controllers-k8s/route53resolver-controller/apis/v1alpha1"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 )
 
-// customPostCompare compares Spec.IPAddresses as a set of subnet IDs, the same
-// identity GetIPAddressDifference uses. The generated order-sensitive DeepEqual
+// customPostCompare reports a Spec.IPAddresses difference exactly when
+// SyncIPAddresses has addresses to associate or disassociate, by asking the
+// same differ the sync path uses. The generated order-sensitive DeepEqual
 // reported a difference no update could resolve, because AWS returns the
 // addresses in an order of its choosing, fills in an IP the user may have left
-// unset, and never echoes SubnetRef. An entry with no subnet ID is skipped, as
-// it is by GetIPAddressDifference.
+// unset, and never echoes SubnetRef (community#3029).
+//
+// Sharing one differ is what keeps the two sides from drifting apart: each used
+// to identify an address by its subnet alone, so a changed ip was invisible
+// here and in the sync path both, and the endpoint silently kept the old
+// address (community#3090).
 func customPostCompare(
 	delta *ackcompare.Delta,
 	a *resource,
@@ -21,25 +23,8 @@ func customPostCompare(
 	if a == nil || b == nil || a.ko == nil || b.ko == nil {
 		return
 	}
-	if !maps.Equal(
-		ipAddressSubnetIDs(a.ko.Spec.IPAddresses),
-		ipAddressSubnetIDs(b.ko.Spec.IPAddresses),
-	) {
+	added, _, unmatchedObserved := ipAddressDifference(a, b)
+	if len(added) > 0 || unmatchedObserved > 0 {
 		delta.Add("Spec.IPAddresses", a.ko.Spec.IPAddresses, b.ko.Spec.IPAddresses)
 	}
-}
-
-// ipAddressSubnetIDs collects an address list's non-nil subnet IDs, the only
-// field GetIPAddressDifference matches on.
-func ipAddressSubnetIDs(
-	ipAddresses []*svcapitypes.IPAddressRequest,
-) map[string]struct{} {
-	subnetIDs := make(map[string]struct{}, len(ipAddresses))
-	for _, ipa := range ipAddresses {
-		if ipa == nil || ipa.SubnetID == nil {
-			continue
-		}
-		subnetIDs[*ipa.SubnetID] = struct{}{}
-	}
-	return subnetIDs
 }

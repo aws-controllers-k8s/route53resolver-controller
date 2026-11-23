@@ -21,6 +21,17 @@ func deltaHookAddr(subnetID, ip string) *svcapitypes.IPAddressRequest {
 	return addr
 }
 
+// deltaHookAddrV6 builds a Spec.IPAddresses entry that may carry an IPv6
+// address. AWS reports ip and ipv6 independently, so an IPv6-only address
+// leaves ip unset.
+func deltaHookAddrV6(subnetID, ip, ipv6 string) *svcapitypes.IPAddressRequest {
+	addr := deltaHookAddr(subnetID, ip)
+	if ipv6 != "" {
+		addr.IPv6 = &ipv6
+	}
+	return addr
+}
+
 // deltaHookRes wraps an address list in a resource, leaving every other Spec
 // field zero so newResourceDelta can only report Spec.IPAddresses.
 func deltaHookRes(addrs ...*svcapitypes.IPAddressRequest) *resource {
@@ -69,9 +80,49 @@ func TestNewResourceDeltaIPAddresses(t *testing.T) {
 			want:    false,
 		},
 		{
-			name:    "duplicate subnet IDs with unchanged membership",
+			name:    "duplicate subnet IDs, AWS holds only one address",
 			desired: deltaHookRes(deltaHookAddr("subnet-a", ""), deltaHookAddr("subnet-a", "")),
 			latest:  deltaHookRes(deltaHookAddr("subnet-a", "10.0.0.5")),
+			want:    true,
+		},
+		{
+			name:    "changed ip in an unchanged subnet",
+			desired: deltaHookRes(deltaHookAddr("subnet-a", "10.0.0.6"), deltaHookAddr("subnet-b", "")),
+			latest:  deltaHookRes(deltaHookAddr("subnet-a", "10.0.0.5"), deltaHookAddr("subnet-b", "10.0.1.5")),
+			want:    true,
+		},
+		{
+			name:    "pinned ip still matches what AWS reports",
+			desired: deltaHookRes(deltaHookAddr("subnet-a", "10.0.0.5"), deltaHookAddr("subnet-b", "")),
+			latest:  deltaHookRes(deltaHookAddr("subnet-a", "10.0.0.5"), deltaHookAddr("subnet-b", "10.0.1.5")),
+			want:    false,
+		},
+		{
+			name:    "IPv6-only address, neither ip nor ipv6 set in spec",
+			desired: deltaHookRes(deltaHookAddr("subnet-a", ""), deltaHookAddr("subnet-b", "")),
+			latest:  deltaHookRes(deltaHookAddrV6("subnet-a", "", "2001:db8::5"), deltaHookAddrV6("subnet-b", "", "2001:db8::6")),
+			want:    false,
+		},
+		{
+			name:    "changed ipv6 in an unchanged subnet",
+			desired: deltaHookRes(deltaHookAddrV6("subnet-a", "", "2001:db8::9"), deltaHookAddr("subnet-b", "")),
+			latest:  deltaHookRes(deltaHookAddrV6("subnet-a", "", "2001:db8::5"), deltaHookAddr("subnet-b", "10.0.1.5")),
+			want:    true,
+		},
+		{
+			name:    "pinned ipv6 still matches what AWS reports",
+			desired: deltaHookRes(deltaHookAddrV6("subnet-a", "", "2001:db8::5"), deltaHookAddr("subnet-b", "")),
+			latest:  deltaHookRes(deltaHookAddrV6("subnet-a", "", "2001:db8::5"), deltaHookAddr("subnet-b", "10.0.1.5")),
+			want:    false,
+		},
+		{
+			// Observed order is reversed so a single nil-tolerant pass would let
+			// the less specific entry consume the dual-set entry's address,
+			// stranding it. AWS cannot report two addresses in one subnet
+			// sharing an ip, so this pins the matcher, not a reachable state.
+			name:    "a dual-set entry keeps its own match from a less specific sibling",
+			desired: deltaHookRes(deltaHookAddr("subnet-a", "10.0.0.5"), deltaHookAddrV6("subnet-a", "10.0.0.5", "2001:db8::5")),
+			latest:  deltaHookRes(deltaHookAddrV6("subnet-a", "10.0.0.5", "2001:db8::5"), deltaHookAddr("subnet-a", "10.0.0.5")),
 			want:    false,
 		},
 		{
@@ -158,29 +209,5 @@ func TestCustomPostCompareNilSafety(t *testing.T) {
 				t.Fatalf("DifferentAt(Spec.IPAddresses) = %v, want %v", got, tt.want)
 			}
 		})
-	}
-}
-
-// TestIPAddressSubnetIDs pins the set semantics the comparison relies on:
-// duplicates collapse and entries without a subnet ID are dropped, matching
-// GetIPAddressDifference.
-func TestIPAddressSubnetIDs(t *testing.T) {
-	got := ipAddressSubnetIDs([]*svcapitypes.IPAddressRequest{
-		deltaHookAddr("subnet-a", "10.0.0.5"),
-		deltaHookAddr("subnet-a", "10.0.0.6"),
-		deltaHookAddr("subnet-b", ""),
-		deltaHookAddr("", "10.0.2.5"),
-		nil,
-	})
-	if len(got) != 2 {
-		t.Fatalf("got %d subnet ID(s), want 2: %v", len(got), got)
-	}
-	for _, want := range []string{"subnet-a", "subnet-b"} {
-		if _, ok := got[want]; !ok {
-			t.Fatalf("missing %q in %v", want, got)
-		}
-	}
-	if got := ipAddressSubnetIDs(nil); len(got) != 0 {
-		t.Fatalf("nil list produced %d entries", len(got))
 	}
 }
