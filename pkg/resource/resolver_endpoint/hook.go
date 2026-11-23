@@ -284,7 +284,10 @@ func (rm *resourceManager) GetIPAddressDifference(
 // is unset, so comparing it reports a difference no update can resolve
 // (community#3029). Matching consumes one observed address per desired entry,
 // most specific first, so two entries in one subnet are told apart and a
-// changed ip becomes one association plus one disassociation.
+// changed ip becomes one association plus one disassociation. ATTACHED
+// observed addresses are claimed before the rest, so a CREATING or
+// FAILED_CREATION duplicate cannot displace the healthy address it duplicates,
+// whatever order AWS reports them in.
 //
 // unmatchedObserved counts every observed address no desired entry claimed,
 // whereas removed holds only those carrying a Status entry, since disassociating
@@ -333,8 +336,19 @@ func ipAddressDifference(
 		})
 	}
 
+	// AWS reports an address that is still CREATING, or that ended in
+	// FAILED_CREATION, with the text it was given and no auto-assigned IPv4.
+	// Such an address can equal a desired entry field for field while the
+	// ATTACHED address for the same IP does not, so claim ATTACHED addresses
+	// first and the rest only for entries still unmatched.
+	attached := make([]bool, len(observed))
+	for i := 0; i < paired; i++ {
+		attached[i] = isIPAddressAttached(latest.ko.Status.IPAddresses[i])
+	}
+
 	claim := func(
 		pinned bool,
+		allowUnattached bool,
 		matches func(desired, observed *svcapitypes.IPAddressRequest) bool,
 	) {
 		for _, c := range candidates {
@@ -343,6 +357,9 @@ func ipAddressDifference(
 			}
 			for i, obs := range observed {
 				if claimedObserved[i] || obs == nil || obs.SubnetID == nil {
+					continue
+				}
+				if !attached[i] && !allowUnattached {
 					continue
 				}
 				if *obs.SubnetID != *c.addr.SubnetID || !matches(c.addr, obs) {
@@ -356,12 +373,12 @@ func ipAddressDifference(
 	}
 
 	// Most specific first, so a desired entry never loses its observed address
-	// to a less specific sibling that had an alternative. AWS cannot return two
-	// addresses in one subnet sharing an ip or ipv6, so the exact sub-pass is
-	// hardening rather than a fix for a reachable state.
-	claim(true, sameIPAddress)
-	claim(true, matchesIPAddress)
-	claim(false, matchesIPAddress)
+	// to a less specific sibling that had an alternative.
+	for _, allowUnattached := range []bool{false, true} {
+		claim(true, allowUnattached, sameIPAddress)
+		claim(true, allowUnattached, matchesIPAddress)
+		claim(false, allowUnattached, matchesIPAddress)
+	}
 
 	for _, c := range candidates {
 		if !c.claimed {

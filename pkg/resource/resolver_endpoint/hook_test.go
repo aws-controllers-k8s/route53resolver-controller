@@ -254,6 +254,37 @@ func TestGetIPAddressDifference(t *testing.T) {
 			wantAdded:   nil,
 			wantRemoved: nil,
 		},
+		{
+			// Seen live on a DUALSTACK endpoint: AWS accepted a second
+			// association of the pinned IPv6 in another textual form, kept the
+			// text as given, assigned no IPv4 and failed it (FAILED_CREATION).
+			// The failed entry is field-for-field equal to the desired entry,
+			// the healthy one is not (AWS added an IPv4), so the healthy
+			// address must still win.
+			name:        "a failed duplicate does not displace the attached pinned address",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", "2001:0DB8:0000:0000:0000:0000:0000:0050"), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", "2001:db8::50"}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "10.0.2.50", "2001:db8::60"}, observedAddr{"subnet-a1", "ip-a3", statusFailed, "", "2001:0DB8:0000:0000:0000:0000:0000:0050"}),
+			wantAdded:   nil,
+			wantRemoved: []string{"ip-a3"},
+		},
+		{
+			// The same duplicate is reported this way for ~10s before it fails.
+			name:        "a creating duplicate does not displace the attached pinned address",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", "2001:0DB8:0000:0000:0000:0000:0000:0050"), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", "2001:db8::50"}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "10.0.2.50", "2001:db8::60"}, observedAddr{"subnet-a1", "ip-a3", statusCreating, "", "2001:0DB8:0000:0000:0000:0000:0000:0050"}),
+			wantAdded:   nil,
+			wantRemoved: []string{"ip-a3"},
+		},
+		{
+			// The same shape with the duplicate reported first: claiming
+			// ATTACHED addresses before the rest does not depend on the order
+			// AWS lists them in, which matching by specificity alone would.
+			name:        "a duplicate listed before the attached address still loses",
+			desired:     desiredAddrs(desiredAddr("subnet-a1", "", "2001:0DB8:0000:0000:0000:0000:0000:0050"), desiredAddr("subnet-a2", "", "")),
+			latest:      observedWithAddrs(observedAddr{"subnet-a1", "ip-a3", statusFailed, "", "2001:0DB8:0000:0000:0000:0000:0000:0050"}, observedAddr{"subnet-a1", "ip-a1", statusAttached, "10.0.1.50", "2001:db8::50"}, observedAddr{"subnet-a2", "ip-a2", statusAttached, "10.0.2.50", "2001:db8::60"}),
+			wantAdded:   nil,
+			wantRemoved: []string{"ip-a3"},
+		},
 	}
 
 	for _, tt := range tests {

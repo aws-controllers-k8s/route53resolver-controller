@@ -400,7 +400,15 @@ class TestResolverEndpoint:
         pinned_subnet = subnet_ids[0]
         other_subnet = subnet_ids[1]
 
+        # The CR reports Synced while AWS may still be CREATING an address, and
+        # AWS reports no IP until it is assigned. Wait for every IP first, so
+        # the expected set below does not record None.
+        deadline = time.time() + IP_SWAP_TIMEOUT_SECONDS
         before = get_endpoint_addresses(route53resolver_client, resolver_endpoint_id)
+        while any(ip is None for _, ip in before) and time.time() < deadline:
+            time.sleep(IP_SWAP_INTERVAL_SECONDS)
+            before = get_endpoint_addresses(route53resolver_client, resolver_endpoint_id)
+        assert all(ip is not None for _, ip in before), f"addresses never got an IP: {before}"
         assert {subnet for subnet, _ in before} == {pinned_subnet, other_subnet}
 
         old_ip = next(ip for subnet, ip in before if subnet == pinned_subnet)
@@ -421,9 +429,11 @@ class TestResolverEndpoint:
         k8s.patch_custom_resource(ref, updates)
 
         # Route 53 Resolver cannot change an address in place, so this is an
-        # associate followed by a disassociate. The removal is deliberately held
-        # back until the new address reaches ATTACHED, so poll for the converged
-        # set rather than sleeping a fixed amount.
+        # associate followed by a disassociate. The removal is held back for one
+        # reconcile, and then until at least two addresses would remain
+        # ATTACHED; on this two-address endpoint that means the new address has
+        # to attach first. So poll for the converged set rather than sleeping a
+        # fixed amount.
         expected = {(pinned_subnet, new_ip), (other_subnet, other_ip)}
         observed = wait_for_endpoint_addresses(
             route53resolver_client, resolver_endpoint_id, expected,
